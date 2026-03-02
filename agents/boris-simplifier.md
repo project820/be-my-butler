@@ -36,9 +36,13 @@ See `boris-preamble.md` "Codex Hidden Card Protocol" section for the full proces
 
 **Quick reference:**
 1. Write problem to `.boris/codex-consult.md` (what tried, why failed, constraints)
-2. Run: `codex exec -m gpt-5.3-codex --full-auto -C /Users/dayum_gud/2ndbrain "Read .boris/codex-consult.md. Provide alternative approaches. Do NOT write code — only describe strategies and reasoning."`
-3. Read response, decide, implement (Claude writes all code)
-4. Notify Secretary of consultation via SendMessage to lead
+2. Run in separate pane:
+   ```bash
+   tmux split-pane -d "codex exec -m gpt-5.3-codex --xhigh --full-auto -C /Users/dayum_gud/2ndbrain 'Read .boris/codex-consult.md. Provide alternative approaches. Do NOT write code — only describe strategies and reasoning. Write response to .boris/codex-response.md'"
+   ```
+3. Wait for response: `while [ ! -f ".boris/codex-response.md" ]; do sleep 3; done`
+4. Read response, decide, implement (Claude writes all code)
+5. Notify Secretary of consultation via SendMessage to lead
 
 **Key rules:** Codex advises only. Claude writes all code. Trigger after 2+ failures, not preemptively. If Codex unavailable, proceed without.
 

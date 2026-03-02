@@ -51,14 +51,18 @@ Created: YYYY-MM-DD HH:MM KST
 {specific points where cross-model perspective adds value}
 ```
 
-### 4. Invoke Codex (Synchronous)
+### 4. Invoke Codex (Separate Pane)
 ```bash
-codex exec -m gpt-5.3-codex --full-auto \
+tmux split-pane -d "codex exec -m gpt-5.3-codex --xhigh --full-auto \
   -C /Users/dayum_gud/2ndbrain \
-  "Read .boris/councils/{topic}/round-01-claude.md and the project context (CLAUDE.md).
+  'Read .boris/councils/{topic}/round-01-claude.md and the project context (CLAUDE.md).
    Challenge the proposed design. Identify risks, blind spots, and alternatives.
    Write your response to .boris/councils/{topic}/round-01-codex.md
-   with Created: timestamp at the top."
+   with Created: timestamp at the top.'"
+```
+Wait for Codex output:
+```bash
+while [ ! -f ".boris/councils/{topic}/round-01-codex.md" ]; do sleep 3; done
 ```
 
 ### 5. Iterate Rounds

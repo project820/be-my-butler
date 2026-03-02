@@ -38,14 +38,16 @@ When stuck on a problem after **2+ failed approaches**, consult Codex for a fres
    - What was tried
    - Why it failed
    - What constraints exist
-2. Invoke Codex:
+2. Invoke Codex in separate pane:
    ```bash
-   codex exec -m gpt-5.3-codex --full-auto \
+   tmux split-pane -d "codex exec -m gpt-5.3-codex --xhigh --full-auto \
      -C /Users/dayum_gud/2ndbrain \
-     "Read .boris/codex-consult.md. Provide alternative approaches.
-      Do NOT write code — only describe strategies and reasoning."
+     'Read .boris/codex-consult.md. Provide alternative approaches.
+      Do NOT write code — only describe strategies and reasoning.
+      Write response to .boris/codex-response.md'"
    ```
-3. Read Codex response and decide whether to adopt
+3. Wait for response: `while [ ! -f ".boris/codex-response.md" ]; do sleep 3; done`
+4. Read Codex response and decide whether to adopt
 4. Record consultation outcome via Secretary (SendMessage to lead)
 5. Implement the chosen approach — **Claude ALWAYS writes all code**
 
