@@ -1,0 +1,7 @@
+# Track only agents/ and commands/
+*
+!.gitignore
+!agents/
+!agents/**
+!commands/
+!commands/**
