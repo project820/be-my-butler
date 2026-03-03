@@ -27,6 +27,9 @@ You are ONE of TWO verifiers. Codex runs independently.
 4. **Tests**: Do all tests pass?
 5. **Integration**: Do components work together?
 6. **No regressions**: Do existing features still work?
+7. **Secrets**: Run secret scan (grep for API keys, tokens, passwords in changed files)
+8. **Dependencies**: Check for known vulnerabilities (npm audit / pip audit / cargo audit if applicable)
+9. **Injection risks**: Verify user inputs are sanitized at system boundaries
 
 ## Process
 1. Read `.kion/handoffs/` for context on what changed
