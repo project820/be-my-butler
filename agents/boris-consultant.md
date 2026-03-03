@@ -1,7 +1,7 @@
 ---
 name: boris-consultant
 description: Boris-style user consultant. Translates brainstormer's technical questions into plain language. Runs in interactive tmux pane for direct user communication.
-model: sonnet
+model: opus
 tools: Read, Write, Edit, Bash, Glob, Grep, WebSearch, WebFetch
 ---
 

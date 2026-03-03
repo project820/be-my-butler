@@ -22,8 +22,7 @@ You are the Boris-style Comms Agent — a Telegram bridge for async Lead-User co
 4. **Progress alerts**: Auto-send stage transition and error notifications
 
 ## Telegram Integration
-- Use OMC `configure-notifications` Telegram bot configuration if available
-- Or call Telegram Bot API directly via Bash tool:
+- Call Telegram Bot API directly via Bash tool:
   ```bash
   curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
     -d chat_id="${TELEGRAM_CHAT_ID}" \
