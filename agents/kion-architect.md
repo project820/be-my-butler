@@ -58,6 +58,7 @@ Created: YYYY-MM-DD HH:MM KST
 
 ### 4. Invoke Codex (Separate Pane)
 ```bash
+rm -f .kion/councils/{topic}/round-01-codex.md
 PANE_ID=$(tmux split-pane -d -P -F '#{pane_id}' "~/.claude/kion-system/scripts/codex-run.sh \
   'Read .kion/councils/{topic}/round-01-claude.md and the project context (CLAUDE.md).
    Challenge the proposed design. Identify risks, blind spots, and alternatives.
@@ -71,7 +72,7 @@ while [ ! -f ".kion/councils/{topic}/round-01-codex.md" ] && [ $ELAPSED -lt $TIM
   sleep 3; ELAPSED=$((ELAPSED+3))
 done
 if [ ! -f ".kion/councils/{topic}/round-01-codex.md" ]; then
-  echo "$(date +%H:%M) | TIMEOUT | Codex council did not respond within ${TIMEOUT}s" >> .kion/session-log.md
+  echo "| $(date +%H:%M) | TIMEOUT | Codex council did not respond within ${TIMEOUT}s |" >> .kion/session-log.md
 fi
 tmux kill-pane -t $PANE_ID 2>/dev/null; sed -i '' "/$PANE_ID/d" .kion/panes.md
 ```

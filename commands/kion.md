@@ -12,7 +12,7 @@ You are the LEAD of a Kion-system agent team.
 3. **NEVER** write or edit documentation — no README, no CLAUDE.md, no docs/*
 4. **NEVER** create files except inside `.kion/` directory (mkdir, coordination notes only)
 5. **ONLY** read files in `.kion/` directory and `CLAUDE.md`
-6. **ONLY** use: Read (for .kion/* only), AskUserQuestion, SendMessage, Bash (mkdir/tmux/curl only)
+6. **ONLY** use: Read (for .kion/* only), AskUserQuestion, SendMessage, Bash (limited to: mkdir, touch, cat, echo, sed, sleep, tmux, curl — .kion/ scope only)
 7. Your **SOLE** job is DECISIONS, ORCHESTRATION, and RELAY — nothing else
 8. Protect your context — you are the bottleneck
 9. If you catch yourself about to write anything outside .kion/, STOP immediately
@@ -47,7 +47,8 @@ No dedicated Secretary agent. Instead, each agent self-logs:
 ## TELEGRAM PROTOCOL
 No dedicated Comms agent. Lead sends Telegram directly when needed:
 ```bash
-curl -s -d "chat_id=$KION_TG_CHAT&text=message" "https://api.telegram.org/bot$KION_TG_TOKEN/sendMessage" > /dev/null
+curl -s --data-urlencode "chat_id=$KION_TG_CHAT" --data-urlencode "text=message" \
+  "https://api.telegram.org/bot${KION_TG_TOKEN}/sendMessage" > /dev/null
 ```
 Telegram env vars MUST be read from shell environment (set in ~/.zshenv):
 - `$KION_TG_CHAT` — chat ID
@@ -142,6 +143,7 @@ When executors finish, run BOTH testing tracks in parallel:
 
 **Track B — Codex Tester (separate pane):**
 ```bash
+rm -f .kion/handoffs/test-result-codex.md
 PANE_ID=$(tmux split-pane -d -P -F '#{pane_id}' "~/.claude/kion-system/scripts/codex-run.sh \
   'Read .kion/handoffs/plan-to-exec.md for context on what changed.
    Write and run tests for the changed modules.
@@ -158,7 +160,7 @@ while [ ! -f ".kion/handoffs/test-result-codex.md" ] && [ $ELAPSED -lt $TIMEOUT 
   sleep 3; ELAPSED=$((ELAPSED+3))
 done
 if [ ! -f ".kion/handoffs/test-result-codex.md" ]; then
-  echo "$(date +%H:%M) | TIMEOUT | Codex tester did not respond within ${TIMEOUT}s" >> .kion/session-log.md
+  echo "| $(date +%H:%M) | TIMEOUT | Codex tester did not respond within ${TIMEOUT}s |" >> .kion/session-log.md
 fi
 tmux kill-pane -t $PANE_ID 2>/dev/null; sed -i '' "/$PANE_ID/d" .kion/panes.md
 ```
@@ -175,6 +177,7 @@ Run BOTH verification tracks in parallel:
 
 **Track B — Codex Verifier (separate pane):**
 ```bash
+rm -f .kion/handoffs/verify-result-codex.md
 PANE_ID=$(tmux split-pane -d -P -F '#{pane_id}' "~/.claude/kion-system/scripts/codex-run.sh \
   'Read .kion/handoffs/plan-to-exec.md for context on what changed.
    Run all verification checks (build, types, lint, tests).
@@ -191,7 +194,7 @@ while [ ! -f ".kion/handoffs/verify-result-codex.md" ] && [ $ELAPSED -lt $TIMEOU
   sleep 3; ELAPSED=$((ELAPSED+3))
 done
 if [ ! -f ".kion/handoffs/verify-result-codex.md" ]; then
-  echo "$(date +%H:%M) | TIMEOUT | Codex verifier did not respond within ${TIMEOUT}s" >> .kion/session-log.md
+  echo "| $(date +%H:%M) | TIMEOUT | Codex verifier did not respond within ${TIMEOUT}s |" >> .kion/session-log.md
 fi
 tmux kill-pane -t $PANE_ID 2>/dev/null; sed -i '' "/$PANE_ID/d" .kion/panes.md
 ```
