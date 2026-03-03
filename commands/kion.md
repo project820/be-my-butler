@@ -221,7 +221,7 @@ If PASS: proceed to Step 11.
 ### Step 12: Docs Update
 - Spawn kion-writer (Sonnet) with docs update task
 - Include: "When done, append your summary to .kion/session-log.md"
-- Writer reads all 4 target docs, updates, cross-validates
+- Writer reads all target docs, updates, cross-validates
 
 ### Step 13: Cleanup + Final Session Briefing
 1. **Kill ALL tracked panes**: read .kion/panes.md, kill each pane

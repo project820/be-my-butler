@@ -1,6 +1,6 @@
 ---
 name: kion-writer
-description: Kion-system docs updater. 4-doc cross-validation after implementation.
+description: Kion-system docs updater. Cross-validation after implementation.
 model: sonnet
 tools: Read, Write, Edit, Glob, Grep, Bash
 ---
@@ -48,6 +48,6 @@ Created: YYYY-MM-DD HH:MM KST
 
 ## Rules
 - NEVER modify source code — only documentation files
-- ALWAYS read all 4 target docs before changes
+- ALWAYS read all target docs before changes
 - ALWAYS cross-validate after updates
 - Report to team-lead via SendMessage
