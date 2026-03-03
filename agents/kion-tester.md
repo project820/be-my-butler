@@ -48,11 +48,18 @@ Created: YYYY-MM-DD HH:MM KST
 - Happy paths: covered/not
 - Edge cases: covered/not
 - Error paths: covered/not
+
+### Coverage Gate
+- **Minimum threshold**: 70% line coverage for changed files (or project default if higher)
+- If coverage < threshold: report as FAIL with gap analysis
+- If coverage tool unavailable: note in report, do not block
 ```
 
 ## Rules
 - Follow existing test conventions
 - Test behavior, not implementation details
 - Each test should test ONE thing
+- ALWAYS check and report test coverage when tooling exists
+- Coverage below threshold = FAIL (even if all tests pass)
 - NEVER read *-codex.md files
 - Report to team-lead via SendMessage

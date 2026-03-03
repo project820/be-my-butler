@@ -64,8 +64,18 @@ PANE_ID=$(tmux split-pane -d -P -F '#{pane_id}' "~/.claude/kion-system/scripts/c
    Write response to .kion/councils/{topic}/round-01-codex.md with Created: timestamp.'")
 echo "$PANE_ID codex-council-{topic}" >> .kion/panes.md
 ```
-Wait: `while [ ! -f ".kion/councils/{topic}/round-01-codex.md" ]; do sleep 3; done`
-Cleanup: `tmux kill-pane -t $PANE_ID 2>/dev/null; sed -i '' "/$PANE_ID/d" .kion/panes.md`
+Wait (with timeout):
+```bash
+TIMEOUT=300; ELAPSED=0
+while [ ! -f ".kion/councils/{topic}/round-01-codex.md" ] && [ $ELAPSED -lt $TIMEOUT ]; do
+  sleep 3; ELAPSED=$((ELAPSED+3))
+done
+if [ ! -f ".kion/councils/{topic}/round-01-codex.md" ]; then
+  echo "$(date +%H:%M) | TIMEOUT | Codex council did not respond within ${TIMEOUT}s" >> .kion/session-log.md
+fi
+tmux kill-pane -t $PANE_ID 2>/dev/null; sed -i '' "/$PANE_ID/d" .kion/panes.md
+```
+If timeout: proceed with solo design, note degradation.
 
 ### 5. Iterate Rounds (2-4 typical)
 Read Codex response → write round-02-claude.md → invoke Codex for round-02-codex.md → repeat until consensus.

@@ -71,8 +71,18 @@ After the user interview, identify technical decision points for cross-model deb
       Write response to .kion/councils/{topic}/round-01-codex.md'")
    echo "$PANE_ID codex-council-{topic}" >> .kion/panes.md
    ```
-4. Wait: `while [ ! -f ".kion/councils/{topic}/round-01-codex.md" ]; do sleep 3; done`
-5. Cleanup pane: `tmux kill-pane -t $PANE_ID 2>/dev/null; sed -i '' "/$PANE_ID/d" .kion/panes.md`
+4. Wait (with timeout):
+   ```bash
+   TIMEOUT=300; ELAPSED=0
+   while [ ! -f ".kion/councils/{topic}/round-01-codex.md" ] && [ $ELAPSED -lt $TIMEOUT ]; do
+     sleep 3; ELAPSED=$((ELAPSED+3))
+   done
+   if [ ! -f ".kion/councils/{topic}/round-01-codex.md" ]; then
+     echo "$(date +%H:%M) | TIMEOUT | Codex council did not respond within ${TIMEOUT}s" >> .kion/session-log.md
+   fi
+   tmux kill-pane -t $PANE_ID 2>/dev/null; sed -i '' "/$PANE_ID/d" .kion/panes.md
+   ```
+5. If timeout occurred, proceed without Codex input — note in briefing.
 6. Read response, iterate if needed (1-2 rounds typical)
 
 **Codex unavailable?** Proceed without council — note in briefing.

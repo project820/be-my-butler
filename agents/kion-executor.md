@@ -33,8 +33,18 @@ When stuck after **2+ failed approaches**, consult Codex:
      'Read .kion/codex-consult.md. Provide alternative approaches. Do NOT write code. Write response to .kion/codex-response.md'")
    echo "$PANE_ID codex-consult" >> .kion/panes.md
    ```
-3. Wait: `while [ ! -f ".kion/codex-response.md" ]; do sleep 3; done`
-4. Cleanup: `tmux kill-pane -t $PANE_ID 2>/dev/null; sed -i '' "/$PANE_ID/d" .kion/panes.md`
+3. Wait (with timeout):
+   ```bash
+   TIMEOUT=300; ELAPSED=0
+   while [ ! -f ".kion/codex-response.md" ] && [ $ELAPSED -lt $TIMEOUT ]; do
+     sleep 3; ELAPSED=$((ELAPSED+3))
+   done
+   if [ ! -f ".kion/codex-response.md" ]; then
+     echo "$(date +%H:%M) | TIMEOUT | Codex consult did not respond within ${TIMEOUT}s" >> .kion/session-log.md
+   fi
+   tmux kill-pane -t $PANE_ID 2>/dev/null; sed -i '' "/$PANE_ID/d" .kion/panes.md
+   ```
+4. If timeout: proceed without Codex input, try alternative approach independently.
 5. Read response, decide, implement (Claude writes all code)
 6. Notify lead of consultation via SendMessage
 
