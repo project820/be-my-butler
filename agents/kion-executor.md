@@ -29,6 +29,7 @@ When stuck after **2+ failed approaches**, consult Codex:
 1. Write problem to `.kion/codex-consult.md` (what tried, why failed, constraints)
 2. Run in separate pane:
    ```bash
+   rm -f .kion/codex-response.md
    PANE_ID=$(tmux split-pane -d -P -F '#{pane_id}' "~/.claude/kion-system/scripts/codex-run.sh \
      'Read .kion/codex-consult.md. Provide alternative approaches. Do NOT write code. Write response to .kion/codex-response.md'")
    echo "$PANE_ID codex-consult" >> .kion/panes.md
@@ -40,7 +41,7 @@ When stuck after **2+ failed approaches**, consult Codex:
      sleep 3; ELAPSED=$((ELAPSED+3))
    done
    if [ ! -f ".kion/codex-response.md" ]; then
-     echo "$(date +%H:%M) | TIMEOUT | Codex consult did not respond within ${TIMEOUT}s" >> .kion/session-log.md
+     echo "| $(date +%H:%M) | TIMEOUT | Codex consult did not respond within ${TIMEOUT}s |" >> .kion/session-log.md
    fi
    tmux kill-pane -t $PANE_ID 2>/dev/null; sed -i '' "/$PANE_ID/d" .kion/panes.md
    ```

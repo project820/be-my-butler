@@ -65,6 +65,7 @@ After the user interview, identify technical decision points for cross-model deb
 2. Write question to `.kion/councils/{topic}/round-01-claude.md` with `Created:` timestamp
 3. Invoke Codex in separate pane:
    ```bash
+   rm -f .kion/councils/{topic}/round-01-codex.md
    PANE_ID=$(tmux split-pane -d -P -F '#{pane_id}' "~/.claude/kion-system/scripts/codex-run.sh \
      'Read .kion/councils/{topic}/round-01-claude.md.
       Provide your perspective on the technical question.
@@ -78,7 +79,7 @@ After the user interview, identify technical decision points for cross-model deb
      sleep 3; ELAPSED=$((ELAPSED+3))
    done
    if [ ! -f ".kion/councils/{topic}/round-01-codex.md" ]; then
-     echo "$(date +%H:%M) | TIMEOUT | Codex council did not respond within ${TIMEOUT}s" >> .kion/session-log.md
+     echo "| $(date +%H:%M) | TIMEOUT | Codex council did not respond within ${TIMEOUT}s |" >> .kion/session-log.md
    fi
    tmux kill-pane -t $PANE_ID 2>/dev/null; sed -i '' "/$PANE_ID/d" .kion/panes.md
    ```
