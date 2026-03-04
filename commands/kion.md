@@ -17,25 +17,48 @@ You are the LEAD of a Kion-system agent team.
 8. Protect your context — you are the bottleneck
 9. If you catch yourself about to write anything outside .kion/, STOP immediately
 
-## PANE LIFECYCLE PROTOCOL
-Every tmux pane MUST be tracked and cleaned up:
-1. **CREATE**: `PANE_ID=$(tmux split-pane -d -P -F '#{pane_id}' "command")` → append to .kion/panes.md
-2. **MONITOR**: Check .kion/panes.md at each stage transition
-3. **CLEANUP**: When agent/task completes or errors → `tmux kill-pane -t $PANE_ID` → remove from .kion/panes.md
-4. **ENFORCE**: Before proceeding to next stage, kill ALL stale panes listed in .kion/panes.md
-5. **SUB-PANES**: Parent agent is responsible for cleanup of any sub-panes before reporting completion
+## PANE LAYOUT PROTOCOL
+
+### 3-Column Layout (created in Step 2)
+```
+┌──────────┬──────────┬──────────┐
+│   LEAD   │ Slot 1   │ Slot 4   │
+│  (fixed) ├──────────┼──────────┤
+│          │ Slot 2   │ Slot 5   │
+├──────────┼──────────┼──────────┤
+│CONSULTANT│ Slot 3   │ Slot 6   │
+│  (fixed) │          │          │
+└──────────┴──────────┴──────────┘
+  Col1(33%)  Col2(33%)  Col3(33%)
+```
+- **Col1**: Lead (top) + Consultant (bottom) — fixed for entire pipeline
+- **Col2, Col3**: Agent slots — each column starts as 1 slot, can be split vertically into up to 3
+- **Max 8 slots total**: 2 fixed + 6 agent slots
+- Layout pane IDs tracked in `.kion/layout.md`, all panes tracked in `.kion/panes.md`
+
+### Slot Management
+1. **CLAIM**: `tmux respawn-pane -k -t $SLOT_PANE "command"` — takes over a placeholder slot
+2. **RELEASE**: `tmux respawn-pane -k -t $SLOT_PANE "sleep infinity"` — returns slot to idle
+3. **SUB-SPLIT**: `NEW=$(tmux split-pane -v -p $PCT -t $SLOT_PANE -d -P -F '#{pane_id}' "sleep infinity")` — splits a column vertically
+4. **TRACK**: Append new sub-panes to `.kion/panes.md` and `.kion/layout.md`
+5. **CLEANUP**: Step 13 kills ALL tracked panes (including placeholders) and removes layout
 
 ## CODEX INVOCATION STANDARD
 ALL Codex invocations MUST use the wrapper script:
 ```
 ~/.claude/kion-system/scripts/codex-run.sh 'prompt here'
 ```
-In tmux:
-```
-PANE_ID=$(tmux split-pane -d -P -F '#{pane_id}' "~/.claude/kion-system/scripts/codex-run.sh 'prompt'")
-echo "$PANE_ID codex-{purpose}" >> .kion/panes.md
+In tmux (slot-based — MUST use layout slots, NEVER bare split-pane):
+```bash
+source .kion/layout.md
+# Claim a slot (COL2 or COL3)
+tmux respawn-pane -k -t $COL2 "~/.claude/kion-system/scripts/codex-run.sh 'prompt'"
+# ... wait for output file ...
+# Release slot back to placeholder
+tmux respawn-pane -k -t $COL2 "sleep infinity"
 ```
 NEVER use raw `codex exec` commands. NEVER specify model names directly.
+NEVER use bare `tmux split-pane` — always use layout slots via `respawn-pane` or `split-pane -v -t $SLOT`.
 
 ## SESSION LOG PROTOCOL
 No dedicated Secretary agent. Instead, each agent self-logs:
@@ -61,7 +84,7 @@ Send at: pipeline start, user approval needed, pipeline end. Do NOT spam every s
 ### Step 1: Setup
 ```bash
 mkdir -p .kion/handoffs/.compressed .kion/councils .kion/archives .kion/.tool-cache
-touch .kion/panes.md
+touch .kion/panes.md .kion/layout.md
 # Session-log rollup: archive previous session's log
 if [ -f ".kion/session-log.md" ] && [ -s ".kion/session-log.md" ]; then
   mv .kion/session-log.md ".kion/archives/session-log-$(date +%Y%m%d-%H%M).md"
@@ -88,10 +111,32 @@ Send Telegram: pipeline start notification.
    ### Step 2 ($(date +%H:%M)): Pipeline started
    EOF
    ```
-2. Spawn Consultant in interactive tmux pane (BELOW Lead, 30% height, track pane ID):
+2. Create 3-column layout + Consultant:
    ```bash
-   PANE_ID=$(tmux split-pane -v -p 30 -P -F '#{pane_id}' "CLAUDECODE= claude --agent kion-consultant '.kion/consultant-feed.md를 먼저 읽고, 작업 내용을 파악한 뒤 유저에게 인사하세요.'")
-   echo "$PANE_ID consultant" >> .kion/panes.md
+   # Get Lead's pane ID
+   LEAD_PANE=$(tmux display-message -p '#{pane_id}')
+
+   # Create Col2 (right 67% of total width)
+   COL2=$(tmux split-pane -h -p 67 -d -P -F '#{pane_id}' "sleep infinity")
+
+   # Create Col3 (right 50% of remaining = 33% of total)
+   COL3=$(tmux split-pane -h -p 50 -t $COL2 -d -P -F '#{pane_id}' "sleep infinity")
+
+   # Create Consultant below Lead (50% of Col1 height)
+   CONSULTANT=$(tmux split-pane -v -p 50 -d -P -F '#{pane_id}' "CLAUDECODE= claude --agent kion-consultant '.kion/consultant-feed.md를 먼저 읽고, 작업 내용을 파악한 뒤 유저에게 인사하세요.'")
+
+   # Save layout (source-able by agents)
+   cat > .kion/layout.md << EOF
+   LEAD=$LEAD_PANE
+   CONSULTANT=$CONSULTANT
+   COL2=$COL2
+   COL3=$COL3
+   EOF
+
+   # Track all panes
+   echo "$CONSULTANT consultant" >> .kion/panes.md
+   echo "$COL2 slot-col2" >> .kion/panes.md
+   echo "$COL3 slot-col3" >> .kion/panes.md
    ```
 3. Spawn kion-brainstormer as native teammate:
    - Task: "Brainstorm with the user about the task. Context: $ARGUMENTS"
@@ -181,17 +226,17 @@ When executors finish, run BOTH testing tracks in parallel:
 - Task: "Write and run tests. Write results to .kion/handoffs/test-result-claude.md"
 - Include: "When done, append your summary to .kion/session-log.md"
 
-**Track B — Codex Tester (separate pane):**
+**Track B — Codex Tester (layout slot):**
 ```bash
+source .kion/layout.md
 rm -f .kion/handoffs/test-result-codex.md
-PANE_ID=$(tmux split-pane -d -P -F '#{pane_id}' "~/.claude/kion-system/scripts/codex-run.sh \
+tmux respawn-pane -k -t $COL2 "~/.claude/kion-system/scripts/codex-run.sh \
   'Read .kion/handoffs/plan-to-exec.md for context on what changed.
    Write and run tests for the changed modules.
    Do NOT read any *-claude.md files.
    Write results to .kion/handoffs/test-result-codex.md
    with PASS/FAIL and evidence for each test.
-   Append a summary line to .kion/session-log.md when done.'")
-echo "$PANE_ID codex-tester" >> .kion/panes.md
+   Append a summary line to .kion/session-log.md when done.'"
 ```
 Wait for Codex output file (with timeout):
 ```bash
@@ -202,7 +247,7 @@ done
 if [ ! -f ".kion/handoffs/test-result-codex.md" ]; then
   echo "| $(date +%H:%M) | TIMEOUT | Codex tester did not respond within ${TIMEOUT}s |" >> .kion/session-log.md
 fi
-tmux kill-pane -t $PANE_ID 2>/dev/null; sed -i '' "/$PANE_ID/d" .kion/panes.md
+tmux respawn-pane -k -t $COL2 "sleep infinity"
 ```
 
 **Codex unavailable or timeout?** Proceed with Claude-only testing. Note degradation in session-log.
@@ -216,17 +261,17 @@ Run BOTH verification tracks in parallel:
 - Task: "Run all verification checks. Write results to .kion/handoffs/verify-result-claude.md"
 - Include: "When done, append your summary to .kion/session-log.md"
 
-**Track B — Codex Verifier (separate pane):**
+**Track B — Codex Verifier (layout slot):**
 ```bash
+source .kion/layout.md
 rm -f .kion/handoffs/verify-result-codex.md
-PANE_ID=$(tmux split-pane -d -P -F '#{pane_id}' "~/.claude/kion-system/scripts/codex-run.sh \
+tmux respawn-pane -k -t $COL2 "~/.claude/kion-system/scripts/codex-run.sh \
   'Read .kion/handoffs/plan-to-exec.md for context on what changed.
    Run all verification checks (build, types, lint, tests).
    Do NOT read any *-claude.md files.
    Write results to .kion/handoffs/verify-result-codex.md
    with PASS/FAIL and evidence for each check.
-   Append a summary line to .kion/session-log.md when done.'")
-echo "$PANE_ID codex-verifier" >> .kion/panes.md
+   Append a summary line to .kion/session-log.md when done.'"
 ```
 Wait for Codex output file (with timeout):
 ```bash
@@ -237,7 +282,7 @@ done
 if [ ! -f ".kion/handoffs/verify-result-codex.md" ]; then
   echo "| $(date +%H:%M) | TIMEOUT | Codex verifier did not respond within ${TIMEOUT}s |" >> .kion/session-log.md
 fi
-tmux kill-pane -t $PANE_ID 2>/dev/null; sed -i '' "/$PANE_ID/d" .kion/panes.md
+tmux respawn-pane -k -t $COL2 "sleep infinity"
 ```
 
 **Codex unavailable or timeout?** Proceed with Claude-only verification. Note degradation in session-log.
@@ -276,13 +321,14 @@ Update consultant feed: `echo "### Step 10 ($(date +%H:%M)): Verification {PASS|
 
 ### Step 13: Cleanup + Final Session Briefing
 0. Update consultant feed with final summary: `echo "### Step 13 ($(date +%H:%M)): Pipeline complete — {final status}" >> .kion/consultant-feed.md`
-1. **Kill ALL tracked panes** (including consultant): read .kion/panes.md, kill each pane
+1. **Kill ALL tracked panes** (including consultant and layout slots): read .kion/panes.md, kill each pane; remove .kion/layout.md
 2. Shut down all remaining teammates
 3. Update `.kion/councils/LEGEND.md` with new council sessions
 4. Index session knowledge (if knowledge.db exists):
    ```bash
-   if [ -x "~/.claude/kion-system/scripts/knowledge-index.sh" ]; then
-     ~/.claude/kion-system/scripts/knowledge-index.sh .kion/
+   INDEX_SCRIPT="$HOME/.claude/kion-system/scripts/knowledge-index.sh"
+   if [ -x "$INDEX_SCRIPT" ]; then
+     "$INDEX_SCRIPT" .kion/
    fi
    ```
 5. Present final summary to user (compiled from handoff files)

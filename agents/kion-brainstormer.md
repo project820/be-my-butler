@@ -63,14 +63,14 @@ After the user interview, identify technical decision points for cross-model deb
 **Process (if applicable):**
 1. Check `.kion/councils/LEGEND.md` for previous debates
 2. Write question to `.kion/councils/{topic}/round-01-claude.md` with `Created:` timestamp
-3. Invoke Codex in separate pane:
+3. Invoke Codex in layout slot:
    ```bash
+   source .kion/layout.md
    rm -f .kion/councils/{topic}/round-01-codex.md
-   PANE_ID=$(tmux split-pane -d -P -F '#{pane_id}' "~/.claude/kion-system/scripts/codex-run.sh \
+   tmux respawn-pane -k -t $COL2 "~/.claude/kion-system/scripts/codex-run.sh \
      'Read .kion/councils/{topic}/round-01-claude.md.
       Provide your perspective on the technical question.
-      Write response to .kion/councils/{topic}/round-01-codex.md'")
-   echo "$PANE_ID codex-council-{topic}" >> .kion/panes.md
+      Write response to .kion/councils/{topic}/round-01-codex.md'"
    ```
 4. Wait (with timeout):
    ```bash
@@ -81,7 +81,7 @@ After the user interview, identify technical decision points for cross-model deb
    if [ ! -f ".kion/councils/{topic}/round-01-codex.md" ]; then
      echo "| $(date +%H:%M) | TIMEOUT | Codex council did not respond within ${TIMEOUT}s |" >> .kion/session-log.md
    fi
-   tmux kill-pane -t $PANE_ID 2>/dev/null; sed -i '' "/$PANE_ID/d" .kion/panes.md
+   tmux respawn-pane -k -t $COL2 "sleep infinity"
    ```
 5. If timeout occurred, proceed without Codex input — note in briefing.
 6. Read response, iterate if needed (1-2 rounds typical)
@@ -140,3 +140,9 @@ Send to team-lead: "BRAINSTORMING_COMPLETE. Briefing at .kion/briefing.md"
 - NEVER skip Phase 1 (interactive brainstorming)
 - ALWAYS delegate exploration to subagents
 - ALWAYS write results to .kion/briefing.md
+
+## Context Efficiency Protocol
+1. Check `.kion/handoffs/.compressed/` for summaries before reading full handoff files
+2. If summary exists: read summary only. Reference original only when specific detail is needed (use Read with offset/limit for specific sections)
+3. Never full-load a file > 500 tokens into your conversation context
+4. When writing handoff outputs: include a structured summary at the TOP of the file (Type, Status, Key Findings — max 5 lines)
