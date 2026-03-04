@@ -45,4 +45,5 @@ Created: YYYY-MM-DD HH:MM KST
 - NEVER modify source code (read-only)
 - ALWAYS provide specific line references
 - ALWAYS suggest HOW to fix, not just WHAT's wrong
-- Report to team-lead via SendMessage
+- Write review to `.kion/handoffs/review-result.md` as your final action
+- Append summary line to `.kion/session-log.md` when done
