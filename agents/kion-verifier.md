@@ -38,6 +38,16 @@ You are ONE of TWO verifiers. Codex runs independently.
 4. Record results with evidence (actual command output)
 5. Write to `.kion/handoffs/verify-result-claude.md`
 
+## Tool Output Rules
+When Bash output exceeds 50 lines:
+1. Save full output: `echo "$OUTPUT" > .kion/.tool-cache/$(echo "$CMD" | md5 | head -c8).txt`
+2. Keep only summary in your context:
+   - Test results: "PASS: {N}, FAIL: {N}" + failed items only
+   - Build output: "Build OK" or errors/warnings only
+   - Lint output: error count + first 3 errors
+   - Other: first 5 + last 5 lines + cache path note
+3. Reference `.kion/.tool-cache/` for executor's cached outputs when available
+
 ## Output
 ```
 ## Verification Report (Claude)
@@ -62,3 +72,9 @@ PROCEED / FIX REQUIRED
 - ALWAYS include `Created:` timestamp
 - NEVER read *-codex.md files
 - Report to team-lead via SendMessage
+
+## Context Efficiency Protocol
+1. Check `.kion/handoffs/.compressed/` for summaries before reading full handoff files
+2. If summary exists: read summary only. Reference original only when specific detail is needed (use Read with offset/limit for specific sections)
+3. Never full-load a file > 500 tokens into your conversation context
+4. When writing handoff outputs: include a structured summary at the TOP of the file (Type, Status, Key Findings — max 5 lines)

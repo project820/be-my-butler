@@ -27,6 +27,12 @@ You are ONE of TWO testers. Codex runs independently.
 5. Commit tests separately
 6. Write results to `.kion/handoffs/test-result-claude.md`
 
+## Tool Output Rules
+When test runner output exceeds 50 lines:
+1. Save full output: `echo "$OUTPUT" > .kion/.tool-cache/test-$(date +%H%M).txt`
+2. Keep only summary in context: "PASS: {N}, FAIL: {N}" + failed test details
+3. Include cache path in test report for Verifier cross-reference
+
 ## Output
 ```
 ## Test Report (Claude)
@@ -63,3 +69,9 @@ Created: YYYY-MM-DD HH:MM KST
 - Coverage below threshold = FAIL (even if all tests pass)
 - NEVER read *-codex.md files
 - Report to team-lead via SendMessage
+
+## Context Efficiency Protocol
+1. Check `.kion/handoffs/.compressed/` for summaries before reading full handoff files
+2. If summary exists: read summary only. Reference original only when specific detail is needed (use Read with offset/limit for specific sections)
+3. Never full-load a file > 500 tokens into your conversation context
+4. When writing handoff outputs: include a structured summary at the TOP of the file (Type, Status, Key Findings — max 5 lines)

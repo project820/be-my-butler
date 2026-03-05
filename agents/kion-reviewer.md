@@ -46,3 +46,9 @@ Created: YYYY-MM-DD HH:MM KST
 - ALWAYS provide specific line references
 - ALWAYS suggest HOW to fix, not just WHAT's wrong
 - Report to team-lead via SendMessage
+
+## Context Efficiency Protocol
+1. Check `.kion/handoffs/.compressed/` for summaries before reading full handoff files
+2. If summary exists: read summary only. Reference original only when specific detail is needed (use Read with offset/limit for specific sections)
+3. Never full-load a file > 500 tokens into your conversation context
+4. When writing handoff outputs: include a structured summary at the TOP of the file (Type, Status, Key Findings — max 5 lines)
