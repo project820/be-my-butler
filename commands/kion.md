@@ -17,48 +17,46 @@ You are the LEAD of a Kion-system agent team.
 8. Protect your context — you are the bottleneck
 9. If you catch yourself about to write anything outside .kion/, STOP immediately
 
-## PANE LAYOUT PROTOCOL
+## TMUX PROTOCOL
 
-### 3-Column Layout (created in Step 2)
-```
-┌──────────┬──────────┬──────────┐
-│   LEAD   │ Slot 1   │ Slot 4   │
-│  (fixed) ├──────────┼──────────┤
-│          │ Slot 2   │ Slot 5   │
-├──────────┼──────────┼──────────┤
-│CONSULTANT│ Slot 3   │ Slot 6   │
-│  (fixed) │          │          │
-└──────────┴──────────┴──────────┘
-  Col1(33%)  Col2(33%)  Col3(33%)
-```
-- **Col1**: Lead (top) + Consultant (bottom) — fixed for entire pipeline
-- **Col2, Col3**: Agent slots — each column starts as 1 slot, can be split vertically into up to 3
-- **Max 8 slots total**: 2 fixed + 6 agent slots
-- Layout pane IDs tracked in `.kion/layout.md`, all panes tracked in `.kion/panes.md`
+### Prerequisite
+Pipeline REQUIRES tmux. Step 1 checks `$TMUX` — if unset, abort with clear error.
 
-### Slot Management
-1. **CLAIM**: `tmux respawn-pane -k -t $SLOT_PANE "command"` — takes over a placeholder slot
-2. **RELEASE**: `tmux respawn-pane -k -t $SLOT_PANE "sleep infinity"` — returns slot to idle
-3. **SUB-SPLIT**: `NEW=$(tmux split-pane -v -p $PCT -t $SLOT_PANE -d -P -F '#{pane_id}' "sleep infinity")` — splits a column vertically
-4. **TRACK**: Append new sub-panes to `.kion/panes.md` and `.kion/layout.md`
-5. **CLEANUP**: Step 13 kills ALL tracked panes (including placeholders) and removes layout
+### Fixed Panes (Lead + Consultant only)
+```
+┌──────────────────────────────┐
+│         LEAD (top)           │
+├──────────────────────────────┤
+│      CONSULTANT (bottom)     │
+└──────────────────────────────┘
+```
+- Lead and Consultant panes are fixed for the entire pipeline
+- Consultant pane ID saved to `.kion/consultant-pane-id`
+- ALL other agents spawn freely via `tmux split-pane` and auto-die when done
+
+### Agent Pane Pattern (spawn → wait → auto-die)
+```bash
+# Spawn: create pane with actual command (no placeholders!)
+PANE=$(tmux split-pane -h -d -P -F '#{pane_id}' "CLAUDECODE= claude --agent {agent} --permission-mode dontAsk '{prompt}'")
+# Wait: poll for result file
+TIMEOUT=600; ELAPSED=0
+while [ ! -f "{result_file}" ] && [ $ELAPSED -lt $TIMEOUT ]; do
+  sleep 5; ELAPSED=$((ELAPSED+5))
+done
+# Cleanup: kill pane (process may already have exited)
+tmux kill-pane -t $PANE 2>/dev/null || true
+```
+**Key rules:**
+- **NEVER use placeholder panes** (`sleep infinity`, `tail -f /dev/null`) — spawn with real command directly
+- Panes are ephemeral — created when needed, killed when done
+- No layout.md, no panes.md, no slot management
 
 ## CODEX INVOCATION STANDARD
 ALL Codex invocations MUST use the wrapper script:
 ```
 ~/.claude/kion-system/scripts/codex-run.sh 'prompt here'
 ```
-In tmux (slot-based — MUST use layout slots, NEVER bare split-pane):
-```bash
-source .kion/layout.md
-# Claim a slot (COL2 or COL3)
-tmux respawn-pane -k -t $COL2 "~/.claude/kion-system/scripts/codex-run.sh 'prompt'"
-# ... wait for output file ...
-# Release slot back to placeholder
-tmux respawn-pane -k -t $COL2 "sleep infinity"
-```
 NEVER use raw `codex exec` commands. NEVER specify model names directly.
-NEVER use bare `tmux split-pane` — always use layout slots via `respawn-pane` or `split-pane -v -t $SLOT`.
 
 ## SESSION LOG PROTOCOL
 No dedicated Secretary agent. Instead, each agent self-logs:
@@ -83,8 +81,9 @@ Send at: pipeline start, user approval needed, pipeline end. Do NOT spam every s
 
 ### Step 1: Setup
 ```bash
+# tmux guard
+if [ -z "$TMUX" ]; then echo "ERROR: kion requires tmux." >&2; exit 1; fi
 mkdir -p .kion/handoffs/.compressed .kion/councils .kion/archives .kion/.tool-cache
-touch .kion/panes.md .kion/layout.md
 # Session-log rollup: archive previous session's log
 if [ -f ".kion/session-log.md" ] && [ -s ".kion/session-log.md" ]; then
   mv .kion/session-log.md ".kion/archives/session-log-$(date +%Y%m%d-%H%M).md"
@@ -111,32 +110,12 @@ Send Telegram: pipeline start notification.
    ### Step 2 ($(date +%H:%M)): Pipeline started
    EOF
    ```
-2. Create 3-column layout + Consultant:
+2. Spawn Consultant pane (below Lead):
    ```bash
-   # Get Lead's pane ID
-   LEAD_PANE=$(tmux display-message -p '#{pane_id}')
-
-   # Create Col2 (right 67% of total width)
-   COL2=$(tmux split-pane -h -p 67 -d -P -F '#{pane_id}' "sleep infinity")
-
-   # Create Col3 (right 50% of remaining = 33% of total)
-   COL3=$(tmux split-pane -h -p 50 -t $COL2 -d -P -F '#{pane_id}' "sleep infinity")
-
-   # Create Consultant below Lead (50% of Col1 height)
-   CONSULTANT=$(tmux split-pane -v -p 50 -d -P -F '#{pane_id}' "CLAUDECODE= claude --agent kion-consultant --permission-mode dontAsk '.kion/consultant-feed.md를 먼저 읽고, 작업 내용을 파악한 뒤 유저에게 인사하세요.'")
-
-   # Save layout (source-able by agents)
-   cat > .kion/layout.md << EOF
-   LEAD=$LEAD_PANE
-   CONSULTANT=$CONSULTANT
-   COL2=$COL2
-   COL3=$COL3
-   EOF
-
-   # Track all panes
-   echo "$CONSULTANT consultant" >> .kion/panes.md
-   echo "$COL2 slot-col2" >> .kion/panes.md
-   echo "$COL3 slot-col3" >> .kion/panes.md
+   CONSULTANT=$(tmux split-pane -v -p 30 -d -P -F '#{pane_id}' \
+     "CLAUDECODE= claude --agent kion-consultant --permission-mode dontAsk \
+     '.kion/consultant-feed.md를 먼저 읽고, 작업 내용을 파악한 뒤 유저에게 인사하세요.'")
+   echo "$CONSULTANT" > .kion/consultant-pane-id
    ```
 3. Spawn kion-brainstormer as native teammate:
    - Task: "Brainstorm with the user about the task. Context: $ARGUMENTS"
@@ -182,14 +161,14 @@ Ask the user with 3 choices:
 ### Step 5: Spawn Architect (Council — MANDATORY for feature/refactor)
 **Skip condition:** For bugfix/infra/review recipes, skip to Step 6.
 
-Spawn kion-architect in COL2 tmux pane:
+Spawn kion-architect:
 ```bash
-source .kion/layout.md
 rm -f .kion/handoffs/plan-to-exec.md
-tmux respawn-pane -k -t $COL2 "CLAUDECODE= claude --agent kion-architect --permission-mode dontAsk \
+ARCH_PANE=$(tmux split-pane -h -d -P -F '#{pane_id}' \
+  "CLAUDECODE= claude --agent kion-architect --permission-mode dontAsk \
   'Read .kion/briefing.md and design the solution. Council debate with Codex is MANDATORY. \
    Write design to .kion/handoffs/plan-to-exec.md. \
-   Append summary to .kion/session-log.md when done.'"
+   Append summary to .kion/session-log.md when done.'")
 
 TIMEOUT=3600; ELAPSED=0
 while [ ! -f ".kion/handoffs/plan-to-exec.md" ] && [ $ELAPSED -lt $TIMEOUT ]; do
@@ -198,7 +177,7 @@ done
 if [ ! -f ".kion/handoffs/plan-to-exec.md" ]; then
   echo "| $(date +%H:%M) | TIMEOUT | Architect did not complete within ${TIMEOUT}s |" >> .kion/session-log.md
 fi
-tmux respawn-pane -k -t $COL2 "sleep infinity"
+tmux kill-pane -t $ARCH_PANE 2>/dev/null || true
 ```
 
 - Architect will conduct Claude-Codex council debate (2-4 rounds)
@@ -219,33 +198,34 @@ Read `.kion/handoffs/plan-to-exec.md` to determine team composition:
   - Set `HAS_FRONTEND=false`
   - Spawn kion-executor with full scope
 
-**Spawn executors in tmux panes (COL2 + COL3):**
+**Spawn executors:**
 ```bash
-source .kion/layout.md
-
 # Detect frontend scope from handoff
 HAS_FRONTEND=false
 if grep -qE '(components/|app/.*page\.tsx|app/.*layout\.tsx|styles/|public/)' .kion/handoffs/plan-to-exec.md 2>/dev/null; then
   HAS_FRONTEND=true
 fi
 
-# Executor in COL2
+# Executor
 rm -f .kion/handoffs/exec-result.md
-tmux respawn-pane -k -t $COL2 "CLAUDECODE= claude --agent kion-executor --permission-mode dontAsk \
+EXEC_PANE=$(tmux split-pane -h -d -P -F '#{pane_id}' \
+  "CLAUDECODE= claude --agent kion-executor --permission-mode dontAsk \
   'Read .kion/handoffs/plan-to-exec.md. Implement backend changes within assigned scope. \
    Write completion report to .kion/handoffs/exec-result.md. \
-   Append summary to .kion/session-log.md when done.'"
+   Append summary to .kion/session-log.md when done.'")
 
-# Frontend in COL3 (conditional)
+# Frontend (conditional)
+FRONT_PANE=""
 if [ "$HAS_FRONTEND" = "true" ]; then
   rm -f .kion/handoffs/frontend-result.md
-  tmux respawn-pane -k -t $COL3 "CLAUDECODE= claude --agent kion-frontend --permission-mode dontAsk \
+  FRONT_PANE=$(tmux split-pane -h -d -P -F '#{pane_id}' \
+    "CLAUDECODE= claude --agent kion-frontend --permission-mode dontAsk \
     'Read .kion/handoffs/plan-to-exec.md. Implement frontend changes within assigned scope. \
      Write completion report to .kion/handoffs/frontend-result.md. \
-     Append summary to .kion/session-log.md when done.'"
+     Append summary to .kion/session-log.md when done.'")
 fi
 
-# Poll for both
+# Poll for completion
 TIMEOUT=600; ELAPSED=0
 while [ $ELAPSED -lt $TIMEOUT ]; do
   EXEC_DONE=false; FRONT_DONE=false
@@ -255,16 +235,14 @@ while [ $ELAPSED -lt $TIMEOUT ]; do
   $EXEC_DONE && $FRONT_DONE && break
   sleep 5; ELAPSED=$((ELAPSED+5))
 done
-# Log timeout failures
 if [ ! -f ".kion/handoffs/exec-result.md" ]; then
   echo "| $(date +%H:%M) | TIMEOUT | Executor did not complete within ${TIMEOUT}s |" >> .kion/session-log.md
 fi
 if [ "$HAS_FRONTEND" = "true" ] && [ ! -f ".kion/handoffs/frontend-result.md" ]; then
   echo "| $(date +%H:%M) | TIMEOUT | Frontend did not complete within ${TIMEOUT}s |" >> .kion/session-log.md
 fi
-# Release slots
-tmux respawn-pane -k -t $COL2 "sleep infinity"
-[ "$HAS_FRONTEND" = "true" ] && tmux respawn-pane -k -t $COL3 "sleep infinity"
+tmux kill-pane -t $EXEC_PANE 2>/dev/null || true
+[ -n "$FRONT_PANE" ] && tmux kill-pane -t $FRONT_PANE 2>/dev/null || true
 ```
 
 **Shared file resolution:** Files in ambiguous directories (utils/, types/, hooks/) must be explicitly assigned by the Architect in the handoff. If unspecified, kion-executor owns them.
@@ -277,100 +255,96 @@ Generate compressed summaries of exec-result.md (and frontend-result.md if appli
 - Update consultant feed: `echo "### Step 7 ($(date +%H:%M)): Execution complete — {modified files summary}" >> .kion/consultant-feed.md`
 
 ### Step 8: Cross-Model Testing (Blind)
-When executors finish, run BOTH testing tracks in parallel tmux panes:
+When executors finish, spawn BOTH testing tracks in parallel:
 
 ```bash
-source .kion/layout.md
-
-# Track A — Codex Tester in COL2
+# Track A — Codex Tester
 rm -f .kion/handoffs/test-result-codex.md
-tmux respawn-pane -k -t $COL2 "~/.claude/kion-system/scripts/codex-run.sh \
+CODEX_TEST=$(tmux split-pane -h -d -P -F '#{pane_id}' \
+  "~/.claude/kion-system/scripts/codex-run.sh \
   'Read .kion/handoffs/plan-to-exec.md for context on what changed.
    Write and run tests for the changed modules.
    Do NOT read any *-claude.md files.
    Write results to .kion/handoffs/test-result-codex.md
    with PASS/FAIL and evidence for each test.
-   Append a summary line to .kion/session-log.md when done.'"
+   Append a summary line to .kion/session-log.md when done.'")
 
-# Track B — Claude Tester in COL3
+# Track B — Claude Tester
 rm -f .kion/handoffs/test-result-claude.md
-tmux respawn-pane -k -t $COL3 "CLAUDECODE= claude --agent kion-tester --permission-mode dontAsk \
+CLAUDE_TEST=$(tmux split-pane -h -d -P -F '#{pane_id}' \
+  "CLAUDECODE= claude --agent kion-tester --permission-mode dontAsk \
   'Read .kion/handoffs/plan-to-exec.md. Write and run tests. \
    Do NOT read any *-codex.md files. \
    Write results to .kion/handoffs/test-result-claude.md. \
-   Append summary to .kion/session-log.md when done.'"
+   Append summary to .kion/session-log.md when done.'")
 
-# Poll for BOTH (Codex: 3600s, Claude: 600s)
+# Poll (Codex: 3600s, Claude: 600s)
 CODEX_TIMEOUT=3600; CLAUDE_TIMEOUT=600; ELAPSED=0; CLAUDE_LOGGED=false
 while [ $ELAPSED -lt $CODEX_TIMEOUT ]; do
   CODEX_DONE=false; CLAUDE_DONE=false
   [ -f ".kion/handoffs/test-result-codex.md" ] && CODEX_DONE=true
   [ -f ".kion/handoffs/test-result-claude.md" ] && CLAUDE_DONE=true
-  # Log Claude timeout at its deadline
   if [ $ELAPSED -ge $CLAUDE_TIMEOUT ] && ! $CLAUDE_DONE && ! $CLAUDE_LOGGED; then
     echo "| $(date +%H:%M) | TIMEOUT | Claude tester did not respond within ${CLAUDE_TIMEOUT}s |" >> .kion/session-log.md
     CLAUDE_LOGGED=true
   fi
   $CODEX_DONE && $CLAUDE_DONE && break
-  # If only waiting for Codex and Claude already resolved, continue waiting
   $CODEX_DONE && [ $ELAPSED -ge $CLAUDE_TIMEOUT ] && break
   sleep 5; ELAPSED=$((ELAPSED+5))
 done
 if [ ! -f ".kion/handoffs/test-result-codex.md" ]; then
   echo "| $(date +%H:%M) | TIMEOUT | Codex tester did not respond within ${CODEX_TIMEOUT}s |" >> .kion/session-log.md
 fi
-tmux respawn-pane -k -t $COL2 "sleep infinity"
-tmux respawn-pane -k -t $COL3 "sleep infinity"
+tmux kill-pane -t $CODEX_TEST 2>/dev/null || true
+tmux kill-pane -t $CLAUDE_TEST 2>/dev/null || true
 ```
 
 **Codex unavailable or timeout?** Proceed with Claude-only testing. Note degradation in session-log.
 Update consultant feed: `echo "### Step 8 ($(date +%H:%M)): Cross-model testing complete" >> .kion/consultant-feed.md`
 
 ### Step 9: Cross-Model Verification (Blind)
-Run BOTH verification tracks in parallel tmux panes:
+Spawn BOTH verification tracks in parallel:
 
 ```bash
-source .kion/layout.md
-
-# Track A — Codex Verifier in COL2
+# Track A — Codex Verifier
 rm -f .kion/handoffs/verify-result-codex.md
-tmux respawn-pane -k -t $COL2 "~/.claude/kion-system/scripts/codex-run.sh \
+CODEX_VERIFY=$(tmux split-pane -h -d -P -F '#{pane_id}' \
+  "~/.claude/kion-system/scripts/codex-run.sh \
   'Read .kion/handoffs/plan-to-exec.md for context on what changed.
    Run all verification checks (build, types, lint, tests).
    Do NOT read any *-claude.md files.
    Write results to .kion/handoffs/verify-result-codex.md
    with PASS/FAIL and evidence for each check.
-   Append a summary line to .kion/session-log.md when done.'"
+   Append a summary line to .kion/session-log.md when done.'")
 
-# Track B — Claude Verifier in COL3
+# Track B — Claude Verifier
 rm -f .kion/handoffs/verify-result-claude.md
-tmux respawn-pane -k -t $COL3 "CLAUDECODE= claude --agent kion-verifier --permission-mode dontAsk \
+CLAUDE_VERIFY=$(tmux split-pane -h -d -P -F '#{pane_id}' \
+  "CLAUDECODE= claude --agent kion-verifier --permission-mode dontAsk \
   'Read .kion/handoffs/plan-to-exec.md. Run all verification checks. \
    Do NOT read any *-codex.md files. \
    Write results to .kion/handoffs/verify-result-claude.md. \
-   Append summary to .kion/session-log.md when done.'"
+   Append summary to .kion/session-log.md when done.'")
 
-# Poll for BOTH (Codex: 3600s, Claude: 600s)
+# Poll (Codex: 3600s, Claude: 600s)
 CODEX_TIMEOUT=3600; CLAUDE_TIMEOUT=600; ELAPSED=0; CLAUDE_LOGGED=false
 while [ $ELAPSED -lt $CODEX_TIMEOUT ]; do
   CODEX_DONE=false; CLAUDE_DONE=false
   [ -f ".kion/handoffs/verify-result-codex.md" ] && CODEX_DONE=true
   [ -f ".kion/handoffs/verify-result-claude.md" ] && CLAUDE_DONE=true
-  # Log Claude timeout at its deadline
   if [ $ELAPSED -ge $CLAUDE_TIMEOUT ] && ! $CLAUDE_DONE && ! $CLAUDE_LOGGED; then
     echo "| $(date +%H:%M) | TIMEOUT | Claude verifier did not respond within ${CLAUDE_TIMEOUT}s |" >> .kion/session-log.md
     CLAUDE_LOGGED=true
   fi
   $CODEX_DONE && $CLAUDE_DONE && break
-  # If only waiting for Codex and Claude already resolved, continue waiting
   $CODEX_DONE && [ $ELAPSED -ge $CLAUDE_TIMEOUT ] && break
   sleep 5; ELAPSED=$((ELAPSED+5))
 done
 if [ ! -f ".kion/handoffs/verify-result-codex.md" ]; then
   echo "| $(date +%H:%M) | TIMEOUT | Codex verifier did not respond within ${CODEX_TIMEOUT}s |" >> .kion/session-log.md
 fi
-tmux respawn-pane -k -t $COL2 "sleep infinity"
-tmux respawn-pane -k -t $COL3 "sleep infinity"
+tmux kill-pane -t $CODEX_VERIFY 2>/dev/null || true
+tmux kill-pane -t $CLAUDE_VERIFY 2>/dev/null || true
 ```
 
 **Codex unavailable or timeout?** Proceed with Claude-only verification. Note degradation in session-log.
@@ -395,15 +369,15 @@ If PASS: proceed to Step 11.
 Update consultant feed: `echo "### Step 10 ($(date +%H:%M)): Verification {PASS|FAIL} — {summary}" >> .kion/consultant-feed.md`
 
 ### Step 11: Simplification
-Spawn kion-simplifier in COL2 tmux pane:
+Spawn kion-simplifier:
 ```bash
-source .kion/layout.md
 rm -f .kion/handoffs/simplify-result.md
-tmux respawn-pane -k -t $COL2 "CLAUDECODE= claude --agent kion-simplifier --permission-mode dontAsk \
+SIMP_PANE=$(tmux split-pane -h -d -P -F '#{pane_id}' \
+  "CLAUDECODE= claude --agent kion-simplifier --permission-mode dontAsk \
   'Read .kion/handoffs/verify-result.md — only run if verification PASSED. \
    Review all recently modified files. Make minimal safe improvements. \
    Write completion report to .kion/handoffs/simplify-result.md. \
-   Append summary to .kion/session-log.md when done.'"
+   Append summary to .kion/session-log.md when done.'")
 
 TIMEOUT=600; ELAPSED=0
 while [ ! -f ".kion/handoffs/simplify-result.md" ] && [ $ELAPSED -lt $TIMEOUT ]; do
@@ -412,21 +386,21 @@ done
 if [ ! -f ".kion/handoffs/simplify-result.md" ]; then
   echo "| $(date +%H:%M) | TIMEOUT | Simplifier did not complete within ${TIMEOUT}s |" >> .kion/session-log.md
 fi
-tmux respawn-pane -k -t $COL2 "sleep infinity"
+tmux kill-pane -t $SIMP_PANE 2>/dev/null || true
 ```
 - Run quick verification after simplification
 - Update consultant feed: `echo "### Step 11 ($(date +%H:%M)): Simplification complete" >> .kion/consultant-feed.md`
 
 ### Step 12: Docs Update
-Spawn kion-writer in COL2 tmux pane:
+Spawn kion-writer:
 ```bash
-source .kion/layout.md
 rm -f .kion/handoffs/docs-update.md
-tmux respawn-pane -k -t $COL2 "CLAUDECODE= claude --agent kion-writer --permission-mode dontAsk \
+WRITER_PANE=$(tmux split-pane -h -d -P -F '#{pane_id}' \
+  "CLAUDECODE= claude --agent kion-writer --permission-mode dontAsk \
   'Read .kion/handoffs/ and .kion/session-log.md for context. \
    Update all target documentation. Cross-validate consistency. \
    Write change summary to .kion/handoffs/docs-update.md. \
-   Append summary to .kion/session-log.md when done.'"
+   Append summary to .kion/session-log.md when done.'")
 
 TIMEOUT=300; ELAPSED=0
 while [ ! -f ".kion/handoffs/docs-update.md" ] && [ $ELAPSED -lt $TIMEOUT ]; do
@@ -435,13 +409,13 @@ done
 if [ ! -f ".kion/handoffs/docs-update.md" ]; then
   echo "| $(date +%H:%M) | TIMEOUT | Writer did not complete within ${TIMEOUT}s |" >> .kion/session-log.md
 fi
-tmux respawn-pane -k -t $COL2 "sleep infinity"
+tmux kill-pane -t $WRITER_PANE 2>/dev/null || true
 ```
 - Update consultant feed: `echo "### Step 12 ($(date +%H:%M)): Docs update complete" >> .kion/consultant-feed.md`
 
 ### Step 13: Cleanup + Final Session Briefing
 0. Update consultant feed with final summary: `echo "### Step 13 ($(date +%H:%M)): Pipeline complete — {final status}" >> .kion/consultant-feed.md`
-1. **Kill ALL tracked panes** (including consultant and layout slots): read .kion/panes.md, kill each pane; remove .kion/layout.md
+1. **Kill Consultant pane**: `tmux kill-pane -t $(cat .kion/consultant-pane-id) 2>/dev/null || true; rm -f .kion/consultant-pane-id`
 2. Shut down all remaining teammates
 3. Update `.kion/councils/LEGEND.md` with new council sessions
 4. Index session knowledge (if knowledge.db exists):

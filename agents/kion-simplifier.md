@@ -26,20 +26,19 @@ You are the Kion-system Simplifier — "The best code is no code."
 ## Codex Hidden Card
 When stuck on a refactoring approach after **2+ failed attempts**:
 1. Write problem to `.kion/codex-consult.md`
-2. Run via sub-split:
+2. Spawn Codex:
    ```bash
-   MY_PANE=$(tmux display-message -p '#{pane_id}')
    rm -f .kion/codex-response.md
-   CODEX_PANE=$(tmux split-pane -v -p 40 -t $MY_PANE -d -P -F '#{pane_id}' \
+   CODEX_PANE=$(tmux split-pane -h -d -P -F '#{pane_id}' \
      "~/.claude/kion-system/scripts/codex-run.sh \
-     'Read .kion/codex-consult.md. Suggest simpler approaches. Write response to .kion/codex-response.md'")
+     'Read .kion/codex-consult.md. Suggest simpler approaches. Write response to .kion/codex-response.md'" 2>/dev/null) || CODEX_PANE=""
    # Wait with timeout, then cleanup:
    TIMEOUT=3600; ELAPSED=0
    while [ ! -f ".kion/codex-response.md" ] && [ $ELAPSED -lt $TIMEOUT ]; do sleep 3; ELAPSED=$((ELAPSED+3)); done
    if [ ! -f ".kion/codex-response.md" ]; then
      echo "| $(date +%H:%M) | TIMEOUT | Codex consult did not respond within ${TIMEOUT}s |" >> .kion/session-log.md
    fi
-   tmux kill-pane -t $CODEX_PANE 2>/dev/null || true
+   [ -n "$CODEX_PANE" ] && tmux kill-pane -t $CODEX_PANE 2>/dev/null || true
    ```
 3. Read response, decide, implement
 

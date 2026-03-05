@@ -63,14 +63,14 @@ After the user interview, identify technical decision points for cross-model deb
 **Process (if applicable):**
 1. Check `.kion/councils/LEGEND.md` for previous debates
 2. Write question to `.kion/councils/{topic}/round-01-claude.md` with `Created:` timestamp
-3. Invoke Codex in layout slot:
+3. Invoke Codex:
    ```bash
-   source .kion/layout.md
    rm -f .kion/councils/{topic}/round-01-codex.md
-   tmux respawn-pane -k -t $COL2 "~/.claude/kion-system/scripts/codex-run.sh \
+   CODEX_PANE=$(tmux split-pane -h -d -P -F '#{pane_id}' \
+     "~/.claude/kion-system/scripts/codex-run.sh \
      'Read .kion/councils/{topic}/round-01-claude.md.
       Provide your perspective on the technical question.
-      Write response to .kion/councils/{topic}/round-01-codex.md'"
+      Write response to .kion/councils/{topic}/round-01-codex.md'" 2>/dev/null) || CODEX_PANE=""
    ```
 4. Wait (with timeout):
    ```bash
@@ -81,7 +81,7 @@ After the user interview, identify technical decision points for cross-model deb
    if [ ! -f ".kion/councils/{topic}/round-01-codex.md" ]; then
      echo "| $(date +%H:%M) | TIMEOUT | Codex council did not respond within ${TIMEOUT}s |" >> .kion/session-log.md
    fi
-   tmux respawn-pane -k -t $COL2 "sleep infinity"
+   [ -n "$CODEX_PANE" ] && tmux kill-pane -t $CODEX_PANE 2>/dev/null || true
    ```
 5. If timeout occurred, proceed without Codex input — note in briefing.
 6. Read response, iterate if needed (1-2 rounds typical)

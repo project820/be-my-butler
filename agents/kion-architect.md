@@ -56,15 +56,14 @@ Created: YYYY-MM-DD HH:MM KST
 {specific points for cross-model perspective}
 ```
 
-### 4. Invoke Codex (Sub-split)
+### 4. Invoke Codex
 ```bash
-MY_PANE=$(tmux display-message -p '#{pane_id}')
 rm -f .kion/councils/{topic}/round-01-codex.md
-CODEX_PANE=$(tmux split-pane -v -p 40 -t $MY_PANE -d -P -F '#{pane_id}' \
+CODEX_PANE=$(tmux split-pane -h -d -P -F '#{pane_id}' \
   "~/.claude/kion-system/scripts/codex-run.sh \
   'Read .kion/councils/{topic}/round-01-claude.md and the project context (CLAUDE.md).
    Challenge the proposed design. Identify risks, blind spots, and alternatives.
-   Write response to .kion/councils/{topic}/round-01-codex.md with Created: timestamp.'")
+   Write response to .kion/councils/{topic}/round-01-codex.md with Created: timestamp.'" 2>/dev/null) || CODEX_PANE=""
 ```
 Wait (with timeout):
 ```bash
@@ -75,7 +74,7 @@ done
 if [ ! -f ".kion/councils/{topic}/round-01-codex.md" ]; then
   echo "| $(date +%H:%M) | TIMEOUT | Codex council did not respond within ${TIMEOUT}s |" >> .kion/session-log.md
 fi
-tmux kill-pane -t $CODEX_PANE 2>/dev/null || true
+[ -n "$CODEX_PANE" ] && tmux kill-pane -t $CODEX_PANE 2>/dev/null || true
 ```
 If timeout: proceed with solo design, note degradation.
 

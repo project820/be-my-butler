@@ -70,13 +70,12 @@ When Bash output exceeds 50 lines:
 ## Codex Hidden Card
 When stuck after **2+ failed approaches**, consult Codex:
 1. Write problem to `.kion/codex-consult.md` (what tried, why failed, constraints)
-2. Run via sub-split:
+2. Spawn Codex:
    ```bash
-   MY_PANE=$(tmux display-message -p '#{pane_id}')
    rm -f .kion/codex-response.md
-   CODEX_PANE=$(tmux split-pane -v -p 40 -t $MY_PANE -d -P -F '#{pane_id}' \
+   CODEX_PANE=$(tmux split-pane -h -d -P -F '#{pane_id}' \
      "~/.claude/kion-system/scripts/codex-run.sh \
-     'Read .kion/codex-consult.md. Provide alternative approaches. Do NOT write code. Write response to .kion/codex-response.md'")
+     'Read .kion/codex-consult.md. Provide alternative approaches. Do NOT write code. Write response to .kion/codex-response.md'" 2>/dev/null) || CODEX_PANE=""
    ```
 3. Wait (with timeout):
    ```bash
@@ -87,7 +86,7 @@ When stuck after **2+ failed approaches**, consult Codex:
    if [ ! -f ".kion/codex-response.md" ]; then
      echo "| $(date +%H:%M) | TIMEOUT | Codex consult did not respond within ${TIMEOUT}s |" >> .kion/session-log.md
    fi
-   tmux kill-pane -t $CODEX_PANE 2>/dev/null || true
+   [ -n "$CODEX_PANE" ] && tmux kill-pane -t $CODEX_PANE 2>/dev/null || true
    ```
 4. If timeout: proceed without Codex input, try alternative approach independently.
 5. Read response, decide, implement (Claude writes all code)
