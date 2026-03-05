@@ -26,16 +26,20 @@ You are the Kion-system Simplifier — "The best code is no code."
 ## Codex Hidden Card
 When stuck on a refactoring approach after **2+ failed attempts**:
 1. Write problem to `.kion/codex-consult.md`
-2. Invoke via layout slot:
+2. Run via sub-split:
    ```bash
-   source .kion/layout.md
+   MY_PANE=$(tmux display-message -p '#{pane_id}')
    rm -f .kion/codex-response.md
-   tmux respawn-pane -k -t $COL2 "~/.claude/kion-system/scripts/codex-run.sh \
-     'Read .kion/codex-consult.md. Suggest simpler approaches. Write response to .kion/codex-response.md'"
-   # Wait with timeout, then release slot:
-   TIMEOUT=300; ELAPSED=0
+   CODEX_PANE=$(tmux split-pane -v -p 40 -t $MY_PANE -d -P -F '#{pane_id}' \
+     "~/.claude/kion-system/scripts/codex-run.sh \
+     'Read .kion/codex-consult.md. Suggest simpler approaches. Write response to .kion/codex-response.md'")
+   # Wait with timeout, then cleanup:
+   TIMEOUT=3600; ELAPSED=0
    while [ ! -f ".kion/codex-response.md" ] && [ $ELAPSED -lt $TIMEOUT ]; do sleep 3; ELAPSED=$((ELAPSED+3)); done
-   tmux respawn-pane -k -t $COL2 "sleep infinity"
+   if [ ! -f ".kion/codex-response.md" ]; then
+     echo "| $(date +%H:%M) | TIMEOUT | Codex consult did not respond within ${TIMEOUT}s |" >> .kion/session-log.md
+   fi
+   tmux kill-pane -t $CODEX_PANE 2>/dev/null || true
    ```
 3. Read response, decide, implement
 
@@ -44,7 +48,8 @@ When stuck on a refactoring approach after **2+ failed attempts**:
 - NEVER simplify if verification hasn't passed
 - Run tests after EVERY change
 - Keep changes small and atomic
-- Report completion via SendMessage to team-lead
+- Write completion report to `.kion/handoffs/simplify-result.md` as your final action
+- Append summary line to `.kion/session-log.md` when done
 
 ## Context Efficiency Protocol
 1. Check `.kion/handoffs/.compressed/` for summaries before reading full handoff files

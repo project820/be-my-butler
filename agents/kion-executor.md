@@ -38,33 +38,35 @@ When Bash output exceeds 50 lines:
 ## Codex Hidden Card
 When stuck after **2+ failed approaches**, consult Codex:
 1. Write problem to `.kion/codex-consult.md` (what tried, why failed, constraints)
-2. Run in layout slot:
+2. Run via sub-split:
    ```bash
-   source .kion/layout.md
+   MY_PANE=$(tmux display-message -p '#{pane_id}')
    rm -f .kion/codex-response.md
-   tmux respawn-pane -k -t $COL2 "~/.claude/kion-system/scripts/codex-run.sh \
-     'Read .kion/codex-consult.md. Provide alternative approaches. Do NOT write code. Write response to .kion/codex-response.md'"
+   CODEX_PANE=$(tmux split-pane -v -p 40 -t $MY_PANE -d -P -F '#{pane_id}' \
+     "~/.claude/kion-system/scripts/codex-run.sh \
+     'Read .kion/codex-consult.md. Provide alternative approaches. Do NOT write code. Write response to .kion/codex-response.md'")
    ```
 3. Wait (with timeout):
    ```bash
-   TIMEOUT=300; ELAPSED=0
+   TIMEOUT=3600; ELAPSED=0
    while [ ! -f ".kion/codex-response.md" ] && [ $ELAPSED -lt $TIMEOUT ]; do
      sleep 3; ELAPSED=$((ELAPSED+3))
    done
    if [ ! -f ".kion/codex-response.md" ]; then
      echo "| $(date +%H:%M) | TIMEOUT | Codex consult did not respond within ${TIMEOUT}s |" >> .kion/session-log.md
    fi
-   tmux respawn-pane -k -t $COL2 "sleep infinity"
+   tmux kill-pane -t $CODEX_PANE 2>/dev/null || true
    ```
 4. If timeout: proceed without Codex input, try alternative approach independently.
 5. Read response, decide, implement (Claude writes all code)
-6. Notify lead of consultation via SendMessage
+6. Note consultation in session log
 
 ## Rules
 - ONLY modify files within your assigned scope
 - NEVER modify files assigned to another executor
 - Commit frequently with conventional commit messages
-- Report completion via SendMessage to team-lead
+- Write completion report to `.kion/handoffs/exec-result.md` as your final action
+- Append summary line to `.kion/session-log.md` when done
 
 ## Context Efficiency Protocol
 1. Check `.kion/handoffs/.compressed/` for summaries before reading full handoff files

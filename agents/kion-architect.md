@@ -56,25 +56,26 @@ Created: YYYY-MM-DD HH:MM KST
 {specific points for cross-model perspective}
 ```
 
-### 4. Invoke Codex (Layout Slot)
+### 4. Invoke Codex (Sub-split)
 ```bash
-source .kion/layout.md
+MY_PANE=$(tmux display-message -p '#{pane_id}')
 rm -f .kion/councils/{topic}/round-01-codex.md
-tmux respawn-pane -k -t $COL3 "~/.claude/kion-system/scripts/codex-run.sh \
+CODEX_PANE=$(tmux split-pane -v -p 40 -t $MY_PANE -d -P -F '#{pane_id}' \
+  "~/.claude/kion-system/scripts/codex-run.sh \
   'Read .kion/councils/{topic}/round-01-claude.md and the project context (CLAUDE.md).
    Challenge the proposed design. Identify risks, blind spots, and alternatives.
-   Write response to .kion/councils/{topic}/round-01-codex.md with Created: timestamp.'"
+   Write response to .kion/councils/{topic}/round-01-codex.md with Created: timestamp.'")
 ```
 Wait (with timeout):
 ```bash
-TIMEOUT=300; ELAPSED=0
+TIMEOUT=3600; ELAPSED=0
 while [ ! -f ".kion/councils/{topic}/round-01-codex.md" ] && [ $ELAPSED -lt $TIMEOUT ]; do
   sleep 3; ELAPSED=$((ELAPSED+3))
 done
 if [ ! -f ".kion/councils/{topic}/round-01-codex.md" ]; then
   echo "| $(date +%H:%M) | TIMEOUT | Codex council did not respond within ${TIMEOUT}s |" >> .kion/session-log.md
 fi
-tmux respawn-pane -k -t $COL3 "sleep infinity"
+tmux kill-pane -t $CODEX_PANE 2>/dev/null || true
 ```
 If timeout: proceed with solo design, note degradation.
 
@@ -117,7 +118,8 @@ Created: YYYY-MM-DD HH:MM KST
 Append entry to `.kion/councils/LEGEND.md`.
 
 ### 9. Notify
-Send completion message to team-lead via SendMessage.
+Completion report is written to `.kion/handoffs/plan-to-exec.md` (Step 7).
+Append summary line to `.kion/session-log.md`.
 
 ## Codex Unavailable Fallback
 Proceed with solo design. Write to councils directory (mark as "solo"). Notify lead.
@@ -127,6 +129,8 @@ Proceed with solo design. Write to councils directory (mark as "solo"). Notify l
 - ALWAYS conduct council debate (degrade if Codex unavailable)
 - ALWAYS include `Created:` timestamps
 - Delegate ALL file reading beyond .kion/ to subagents
+- Write completion report to `.kion/handoffs/plan-to-exec.md` as your final action
+- Append summary line to `.kion/session-log.md` when done
 
 ## Context Efficiency Protocol
 1. Check `.kion/handoffs/.compressed/` for summaries before reading full handoff files

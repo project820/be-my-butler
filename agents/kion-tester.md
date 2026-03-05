@@ -68,7 +68,8 @@ Created: YYYY-MM-DD HH:MM KST
 - ALWAYS check and report test coverage when tooling exists
 - Coverage below threshold = FAIL (even if all tests pass)
 - NEVER read *-codex.md files
-- Report to team-lead via SendMessage
+- Write results to `.kion/handoffs/test-result-claude.md` as your final action
+- Append summary line to `.kion/session-log.md` when done
 
 ## Context Efficiency Protocol
 1. Check `.kion/handoffs/.compressed/` for summaries before reading full handoff files

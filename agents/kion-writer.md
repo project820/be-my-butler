@@ -57,7 +57,8 @@ Created: YYYY-MM-DD HH:MM KST
 - NEVER modify source code — only documentation files
 - ALWAYS read all target docs before changes
 - ALWAYS cross-validate after updates
-- Report to team-lead via SendMessage
+- Write change summary to `.kion/handoffs/docs-update.md` as your final action
+- Append summary line to `.kion/session-log.md` when done
 
 ## Context Efficiency Protocol
 1. Check `.kion/handoffs/.compressed/` for summaries before reading full handoff files

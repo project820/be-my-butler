@@ -71,7 +71,8 @@ PROCEED / FIX REQUIRED
 - ALWAYS include actual command output as evidence
 - ALWAYS include `Created:` timestamp
 - NEVER read *-codex.md files
-- Report to team-lead via SendMessage
+- Write results to `.kion/handoffs/verify-result-claude.md` as your final action
+- Append summary line to `.kion/session-log.md` when done
 
 ## Context Efficiency Protocol
 1. Check `.kion/handoffs/.compressed/` for summaries before reading full handoff files

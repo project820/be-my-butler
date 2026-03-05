@@ -123,7 +123,7 @@ Send Telegram: pipeline start notification.
    COL3=$(tmux split-pane -h -p 50 -t $COL2 -d -P -F '#{pane_id}' "sleep infinity")
 
    # Create Consultant below Lead (50% of Col1 height)
-   CONSULTANT=$(tmux split-pane -v -p 50 -d -P -F '#{pane_id}' "CLAUDECODE= claude --agent kion-consultant '.kion/consultant-feed.md를 먼저 읽고, 작업 내용을 파악한 뒤 유저에게 인사하세요.'")
+   CONSULTANT=$(tmux split-pane -v -p 50 -d -P -F '#{pane_id}' "CLAUDECODE= claude --agent kion-consultant --permission-mode dontAsk '.kion/consultant-feed.md를 먼저 읽고, 작업 내용을 파악한 뒤 유저에게 인사하세요.'")
 
    # Save layout (source-able by agents)
    cat > .kion/layout.md << EOF
@@ -180,14 +180,31 @@ Ask the user with 3 choices:
 - **수정** — user modifies the composition
 
 ### Step 5: Spawn Architect (Council — MANDATORY for feature/refactor)
-Spawn kion-architect as a teammate:
-- Task: "Read .kion/briefing.md and design the solution. Council debate with Codex is MANDATORY."
-- Include in prompt: "When done, append your summary to .kion/session-log.md"
+**Skip condition:** For bugfix/infra/review recipes, skip to Step 6.
+
+Spawn kion-architect in COL2 tmux pane:
+```bash
+source .kion/layout.md
+rm -f .kion/handoffs/plan-to-exec.md
+tmux respawn-pane -k -t $COL2 "CLAUDECODE= claude --agent kion-architect --permission-mode dontAsk \
+  'Read .kion/briefing.md and design the solution. Council debate with Codex is MANDATORY. \
+   Write design to .kion/handoffs/plan-to-exec.md. \
+   Append summary to .kion/session-log.md when done.'"
+
+TIMEOUT=3600; ELAPSED=0
+while [ ! -f ".kion/handoffs/plan-to-exec.md" ] && [ $ELAPSED -lt $TIMEOUT ]; do
+  sleep 5; ELAPSED=$((ELAPSED+5))
+done
+if [ ! -f ".kion/handoffs/plan-to-exec.md" ]; then
+  echo "| $(date +%H:%M) | TIMEOUT | Architect did not complete within ${TIMEOUT}s |" >> .kion/session-log.md
+fi
+tmux respawn-pane -k -t $COL2 "sleep infinity"
+```
+
 - Architect will conduct Claude-Codex council debate (2-4 rounds)
 - Council output: `.kion/councils/{topic}/CONSENSUS.md`
 - Design output: `.kion/handoffs/plan-to-exec.md`
 
-**Skip condition:** For bugfix/infra/review recipes, skip to Step 6.
 Update consultant feed: `echo "### Step 5 완료 ($(date +%H:%M)): Architect design complete — $(head -3 .kion/handoffs/plan-to-exec.md)" >> .kion/consultant-feed.md`
 
 ### Step 6: Spawn Execution Team
@@ -195,40 +212,77 @@ Read `.kion/handoffs/plan-to-exec.md` to determine team composition:
 
 **Frontend scope detection:**
 - If handoff contains files in frontend directories (components/, app/**/page.tsx, app/**/layout.tsx, styles/, public/):
+  - Set `HAS_FRONTEND=true`
   - Spawn kion-frontend with frontend file scope
   - Spawn kion-executor with backend file scope
 - If no frontend files in handoff:
+  - Set `HAS_FRONTEND=false`
   - Spawn kion-executor with full scope
 
-**Spawn each executor:**
-- Use the appropriate kion-* agent type (kion-executor or kion-frontend)
-- Assign specific file scope from the handoff to avoid conflicts
-- Give each teammate the relevant handoff context
-- Include in each prompt: "When done, append your summary to .kion/session-log.md"
-- Require plan approval before implementation
+**Spawn executors in tmux panes (COL2 + COL3):**
+```bash
+source .kion/layout.md
+
+# Detect frontend scope from handoff
+HAS_FRONTEND=false
+if grep -qE '(components/|app/.*page\.tsx|app/.*layout\.tsx|styles/|public/)' .kion/handoffs/plan-to-exec.md 2>/dev/null; then
+  HAS_FRONTEND=true
+fi
+
+# Executor in COL2
+rm -f .kion/handoffs/exec-result.md
+tmux respawn-pane -k -t $COL2 "CLAUDECODE= claude --agent kion-executor --permission-mode dontAsk \
+  'Read .kion/handoffs/plan-to-exec.md. Implement backend changes within assigned scope. \
+   Write completion report to .kion/handoffs/exec-result.md. \
+   Append summary to .kion/session-log.md when done.'"
+
+# Frontend in COL3 (conditional)
+if [ "$HAS_FRONTEND" = "true" ]; then
+  rm -f .kion/handoffs/frontend-result.md
+  tmux respawn-pane -k -t $COL3 "CLAUDECODE= claude --agent kion-frontend --permission-mode dontAsk \
+    'Read .kion/handoffs/plan-to-exec.md. Implement frontend changes within assigned scope. \
+     Write completion report to .kion/handoffs/frontend-result.md. \
+     Append summary to .kion/session-log.md when done.'"
+fi
+
+# Poll for both
+TIMEOUT=600; ELAPSED=0
+while [ $ELAPSED -lt $TIMEOUT ]; do
+  EXEC_DONE=false; FRONT_DONE=false
+  [ -f ".kion/handoffs/exec-result.md" ] && EXEC_DONE=true
+  [ "$HAS_FRONTEND" != "true" ] && FRONT_DONE=true
+  [ -f ".kion/handoffs/frontend-result.md" ] && FRONT_DONE=true
+  $EXEC_DONE && $FRONT_DONE && break
+  sleep 5; ELAPSED=$((ELAPSED+5))
+done
+# Log timeout failures
+if [ ! -f ".kion/handoffs/exec-result.md" ]; then
+  echo "| $(date +%H:%M) | TIMEOUT | Executor did not complete within ${TIMEOUT}s |" >> .kion/session-log.md
+fi
+if [ "$HAS_FRONTEND" = "true" ] && [ ! -f ".kion/handoffs/frontend-result.md" ]; then
+  echo "| $(date +%H:%M) | TIMEOUT | Frontend did not complete within ${TIMEOUT}s |" >> .kion/session-log.md
+fi
+# Release slots
+tmux respawn-pane -k -t $COL2 "sleep infinity"
+[ "$HAS_FRONTEND" = "true" ] && tmux respawn-pane -k -t $COL3 "sleep infinity"
+```
 
 **Shared file resolution:** Files in ambiguous directories (utils/, types/, hooks/) must be explicitly assigned by the Architect in the handoff. If unspecified, kion-executor owns them.
 
 - Update consultant feed: `echo "### Step 6 ($(date +%H:%M)): Execution team spawned — {team composition summary}" >> .kion/consultant-feed.md`
 
 ### Step 7: Monitor Execution
-- Receive completion messages from teammates
-- Read handoff files from `.kion/handoffs/`
-- Make coordination decisions
-- Report progress to user
+Step 6 polling handles monitoring. Read handoff files when polling completes.
+Generate compressed summaries of exec-result.md (and frontend-result.md if applicable).
 - Update consultant feed: `echo "### Step 7 ($(date +%H:%M)): Execution complete — {modified files summary}" >> .kion/consultant-feed.md`
 
 ### Step 8: Cross-Model Testing (Blind)
-When executors finish, run BOTH testing tracks in parallel:
+When executors finish, run BOTH testing tracks in parallel tmux panes:
 
-**Track A — Claude Tester:**
-- Spawn kion-tester as teammate
-- Task: "Write and run tests. Write results to .kion/handoffs/test-result-claude.md"
-- Include: "When done, append your summary to .kion/session-log.md"
-
-**Track B — Codex Tester (layout slot):**
 ```bash
 source .kion/layout.md
+
+# Track A — Codex Tester in COL2
 rm -f .kion/handoffs/test-result-codex.md
 tmux respawn-pane -k -t $COL2 "~/.claude/kion-system/scripts/codex-run.sh \
   'Read .kion/handoffs/plan-to-exec.md for context on what changed.
@@ -237,33 +291,48 @@ tmux respawn-pane -k -t $COL2 "~/.claude/kion-system/scripts/codex-run.sh \
    Write results to .kion/handoffs/test-result-codex.md
    with PASS/FAIL and evidence for each test.
    Append a summary line to .kion/session-log.md when done.'"
-```
-Wait for Codex output file (with timeout):
-```bash
-TIMEOUT=300; ELAPSED=0
-while [ ! -f ".kion/handoffs/test-result-codex.md" ] && [ $ELAPSED -lt $TIMEOUT ]; do
-  sleep 3; ELAPSED=$((ELAPSED+3))
+
+# Track B — Claude Tester in COL3
+rm -f .kion/handoffs/test-result-claude.md
+tmux respawn-pane -k -t $COL3 "CLAUDECODE= claude --agent kion-tester --permission-mode dontAsk \
+  'Read .kion/handoffs/plan-to-exec.md. Write and run tests. \
+   Do NOT read any *-codex.md files. \
+   Write results to .kion/handoffs/test-result-claude.md. \
+   Append summary to .kion/session-log.md when done.'"
+
+# Poll for BOTH (Codex: 3600s, Claude: 600s)
+CODEX_TIMEOUT=3600; CLAUDE_TIMEOUT=600; ELAPSED=0; CLAUDE_LOGGED=false
+while [ $ELAPSED -lt $CODEX_TIMEOUT ]; do
+  CODEX_DONE=false; CLAUDE_DONE=false
+  [ -f ".kion/handoffs/test-result-codex.md" ] && CODEX_DONE=true
+  [ -f ".kion/handoffs/test-result-claude.md" ] && CLAUDE_DONE=true
+  # Log Claude timeout at its deadline
+  if [ $ELAPSED -ge $CLAUDE_TIMEOUT ] && ! $CLAUDE_DONE && ! $CLAUDE_LOGGED; then
+    echo "| $(date +%H:%M) | TIMEOUT | Claude tester did not respond within ${CLAUDE_TIMEOUT}s |" >> .kion/session-log.md
+    CLAUDE_LOGGED=true
+  fi
+  $CODEX_DONE && $CLAUDE_DONE && break
+  # If only waiting for Codex and Claude already resolved, continue waiting
+  $CODEX_DONE && [ $ELAPSED -ge $CLAUDE_TIMEOUT ] && break
+  sleep 5; ELAPSED=$((ELAPSED+5))
 done
 if [ ! -f ".kion/handoffs/test-result-codex.md" ]; then
-  echo "| $(date +%H:%M) | TIMEOUT | Codex tester did not respond within ${TIMEOUT}s |" >> .kion/session-log.md
+  echo "| $(date +%H:%M) | TIMEOUT | Codex tester did not respond within ${CODEX_TIMEOUT}s |" >> .kion/session-log.md
 fi
 tmux respawn-pane -k -t $COL2 "sleep infinity"
+tmux respawn-pane -k -t $COL3 "sleep infinity"
 ```
 
 **Codex unavailable or timeout?** Proceed with Claude-only testing. Note degradation in session-log.
 Update consultant feed: `echo "### Step 8 ($(date +%H:%M)): Cross-model testing complete" >> .kion/consultant-feed.md`
 
 ### Step 9: Cross-Model Verification (Blind)
-Run BOTH verification tracks in parallel:
+Run BOTH verification tracks in parallel tmux panes:
 
-**Track A — Claude Verifier:**
-- Spawn kion-verifier as teammate
-- Task: "Run all verification checks. Write results to .kion/handoffs/verify-result-claude.md"
-- Include: "When done, append your summary to .kion/session-log.md"
-
-**Track B — Codex Verifier (layout slot):**
 ```bash
 source .kion/layout.md
+
+# Track A — Codex Verifier in COL2
 rm -f .kion/handoffs/verify-result-codex.md
 tmux respawn-pane -k -t $COL2 "~/.claude/kion-system/scripts/codex-run.sh \
   'Read .kion/handoffs/plan-to-exec.md for context on what changed.
@@ -272,17 +341,36 @@ tmux respawn-pane -k -t $COL2 "~/.claude/kion-system/scripts/codex-run.sh \
    Write results to .kion/handoffs/verify-result-codex.md
    with PASS/FAIL and evidence for each check.
    Append a summary line to .kion/session-log.md when done.'"
-```
-Wait for Codex output file (with timeout):
-```bash
-TIMEOUT=300; ELAPSED=0
-while [ ! -f ".kion/handoffs/verify-result-codex.md" ] && [ $ELAPSED -lt $TIMEOUT ]; do
-  sleep 3; ELAPSED=$((ELAPSED+3))
+
+# Track B — Claude Verifier in COL3
+rm -f .kion/handoffs/verify-result-claude.md
+tmux respawn-pane -k -t $COL3 "CLAUDECODE= claude --agent kion-verifier --permission-mode dontAsk \
+  'Read .kion/handoffs/plan-to-exec.md. Run all verification checks. \
+   Do NOT read any *-codex.md files. \
+   Write results to .kion/handoffs/verify-result-claude.md. \
+   Append summary to .kion/session-log.md when done.'"
+
+# Poll for BOTH (Codex: 3600s, Claude: 600s)
+CODEX_TIMEOUT=3600; CLAUDE_TIMEOUT=600; ELAPSED=0; CLAUDE_LOGGED=false
+while [ $ELAPSED -lt $CODEX_TIMEOUT ]; do
+  CODEX_DONE=false; CLAUDE_DONE=false
+  [ -f ".kion/handoffs/verify-result-codex.md" ] && CODEX_DONE=true
+  [ -f ".kion/handoffs/verify-result-claude.md" ] && CLAUDE_DONE=true
+  # Log Claude timeout at its deadline
+  if [ $ELAPSED -ge $CLAUDE_TIMEOUT ] && ! $CLAUDE_DONE && ! $CLAUDE_LOGGED; then
+    echo "| $(date +%H:%M) | TIMEOUT | Claude verifier did not respond within ${CLAUDE_TIMEOUT}s |" >> .kion/session-log.md
+    CLAUDE_LOGGED=true
+  fi
+  $CODEX_DONE && $CLAUDE_DONE && break
+  # If only waiting for Codex and Claude already resolved, continue waiting
+  $CODEX_DONE && [ $ELAPSED -ge $CLAUDE_TIMEOUT ] && break
+  sleep 5; ELAPSED=$((ELAPSED+5))
 done
 if [ ! -f ".kion/handoffs/verify-result-codex.md" ]; then
-  echo "| $(date +%H:%M) | TIMEOUT | Codex verifier did not respond within ${TIMEOUT}s |" >> .kion/session-log.md
+  echo "| $(date +%H:%M) | TIMEOUT | Codex verifier did not respond within ${CODEX_TIMEOUT}s |" >> .kion/session-log.md
 fi
 tmux respawn-pane -k -t $COL2 "sleep infinity"
+tmux respawn-pane -k -t $COL3 "sleep infinity"
 ```
 
 **Codex unavailable or timeout?** Proceed with Claude-only verification. Note degradation in session-log.
@@ -307,16 +395,48 @@ If PASS: proceed to Step 11.
 Update consultant feed: `echo "### Step 10 ($(date +%H:%M)): Verification {PASS|FAIL} — {summary}" >> .kion/consultant-feed.md`
 
 ### Step 11: Simplification
-- Spawn kion-simplifier
-- Include: "When done, append your summary to .kion/session-log.md"
-- Wait for completion
+Spawn kion-simplifier in COL2 tmux pane:
+```bash
+source .kion/layout.md
+rm -f .kion/handoffs/simplify-result.md
+tmux respawn-pane -k -t $COL2 "CLAUDECODE= claude --agent kion-simplifier --permission-mode dontAsk \
+  'Read .kion/handoffs/verify-result.md — only run if verification PASSED. \
+   Review all recently modified files. Make minimal safe improvements. \
+   Write completion report to .kion/handoffs/simplify-result.md. \
+   Append summary to .kion/session-log.md when done.'"
+
+TIMEOUT=600; ELAPSED=0
+while [ ! -f ".kion/handoffs/simplify-result.md" ] && [ $ELAPSED -lt $TIMEOUT ]; do
+  sleep 5; ELAPSED=$((ELAPSED+5))
+done
+if [ ! -f ".kion/handoffs/simplify-result.md" ]; then
+  echo "| $(date +%H:%M) | TIMEOUT | Simplifier did not complete within ${TIMEOUT}s |" >> .kion/session-log.md
+fi
+tmux respawn-pane -k -t $COL2 "sleep infinity"
+```
 - Run quick verification after simplification
 - Update consultant feed: `echo "### Step 11 ($(date +%H:%M)): Simplification complete" >> .kion/consultant-feed.md`
 
 ### Step 12: Docs Update
-- Spawn kion-writer (Sonnet) with docs update task
-- Include: "When done, append your summary to .kion/session-log.md"
-- Writer reads all target docs, updates, cross-validates
+Spawn kion-writer in COL2 tmux pane:
+```bash
+source .kion/layout.md
+rm -f .kion/handoffs/docs-update.md
+tmux respawn-pane -k -t $COL2 "CLAUDECODE= claude --agent kion-writer --permission-mode dontAsk \
+  'Read .kion/handoffs/ and .kion/session-log.md for context. \
+   Update all target documentation. Cross-validate consistency. \
+   Write change summary to .kion/handoffs/docs-update.md. \
+   Append summary to .kion/session-log.md when done.'"
+
+TIMEOUT=300; ELAPSED=0
+while [ ! -f ".kion/handoffs/docs-update.md" ] && [ $ELAPSED -lt $TIMEOUT ]; do
+  sleep 5; ELAPSED=$((ELAPSED+5))
+done
+if [ ! -f ".kion/handoffs/docs-update.md" ]; then
+  echo "| $(date +%H:%M) | TIMEOUT | Writer did not complete within ${TIMEOUT}s |" >> .kion/session-log.md
+fi
+tmux respawn-pane -k -t $COL2 "sleep infinity"
+```
 - Update consultant feed: `echo "### Step 12 ($(date +%H:%M)): Docs update complete" >> .kion/consultant-feed.md`
 
 ### Step 13: Cleanup + Final Session Briefing
