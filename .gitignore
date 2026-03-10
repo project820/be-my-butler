@@ -1,7 +1,12 @@
-# Track only agents/ and commands/
+# Track agents, commands, skills, and bmb-system scripts
 *
 !.gitignore
 !agents/
 !agents/**
 !commands/
 !commands/**
+!skills/
+!skills/**
+!bmb-system/
+!bmb-system/scripts/
+!bmb-system/scripts/*.sh
