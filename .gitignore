@@ -21,6 +21,10 @@ npm-debug.log*
 .bmb/
 TODO.md
 
+# Claude Code
+CLAUDE.md
+.claude/
+
 # Environment
 .env
 .env.*
