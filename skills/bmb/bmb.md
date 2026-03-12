@@ -327,6 +327,31 @@ fi
 
 Poll with `claude_agent` timeout. Kill panes when done.
 
+After poll completes for each agent:
+```bash
+# Executor result
+if [ -f ".bmb/handoffs/exec-result.md" ]; then
+  bmb_analytics_event "5" "executor" "agent_complete" "info" "" "executor done"
+  SendMessage to Consultant: {"event":"agent_complete","step":"5","agent":"executor","result":".bmb/handoffs/exec-result.md","ts":"$(date +%H:%M)"}
+else
+  bmb_analytics_event "5" "executor" "agent_timeout" "warn" "" "executor timed out at ${CLAUDE_TIMEOUT}s"
+  SendMessage to Consultant: {"event":"agent_timeout","step":"5","agent":"executor","elapsed_sec":$CLAUDE_TIMEOUT,"ts":"$(date +%H:%M)"}
+fi
+tmux kill-pane -t $EXEC_PANE 2>/dev/null || true
+
+# Frontend result (if spawned)
+if [ -n "$FRONT_PANE" ]; then
+  if [ -f ".bmb/handoffs/frontend-result.md" ]; then
+    bmb_analytics_event "5" "frontend" "agent_complete" "info" "" "frontend done"
+    SendMessage to Consultant: {"event":"agent_complete","step":"5","agent":"frontend","result":".bmb/handoffs/frontend-result.md","ts":"$(date +%H:%M)"}
+  else
+    bmb_analytics_event "5" "frontend" "agent_timeout" "warn" "" "frontend timed out at ${CLAUDE_TIMEOUT}s"
+    SendMessage to Consultant: {"event":"agent_timeout","step":"5","agent":"frontend","elapsed_sec":$CLAUDE_TIMEOUT,"ts":"$(date +%H:%M)"}
+  fi
+  tmux kill-pane -t $FRONT_PANE 2>/dev/null || true
+fi
+```
+
 **Step 5.5: Merge worktrees** (if used):
 ```bash
 if [ -d ".bmb/worktrees/executor" ]; then
@@ -377,6 +402,8 @@ CROSS_TEST=$(tmux split-pane -h -d -P -F '#{pane_id}' \
   'Read .bmb/handoffs/briefing.md for context. Work in .bmb/worktrees/tester-cross/. \
    Write and run tests. Do NOT read any *-claude.md files. \
    Write results to .bmb/handoffs/test-result-cross.md with PASS/FAIL and evidence.'")
+bmb_analytics_event "6" "tester-cross" "agent_spawn" "info" "" "cross-model tester spawned"
+SendMessage to Consultant: {"event":"agent_spawn","step":"6","agent":"tester-cross","timeout_sec":$CROSS_TIMEOUT,"ts":"$(date +%H:%M)"}
 
 # Track B — Claude Tester
 rm -f .bmb/handoffs/test-result-claude.md
@@ -385,6 +412,8 @@ CLAUDE_TEST=$(tmux split-pane -h -d -P -F '#{pane_id}' \
   'Read .bmb/handoffs/plan-to-exec.md. Work in .bmb/worktrees/tester-claude/. \
    Write and run tests. Do NOT read any *-cross.md files. \
    Write results to .bmb/handoffs/test-result-claude.md.'")
+bmb_analytics_event "6" "tester-claude" "agent_spawn" "info" "" "claude tester spawned"
+SendMessage to Consultant: {"event":"agent_spawn","step":"6","agent":"tester-claude","timeout_sec":$CLAUDE_TIMEOUT,"ts":"$(date +%H:%M)"}
 ```
 
 Poll with SEPARATE timeouts:
@@ -405,8 +434,31 @@ while [ $ELAPSED -lt $CROSS_TIMEOUT ]; do
 done
 ```
 
-Cleanup test worktrees. Kill panes.
-**Consultant isolation**: do NOT send test results to consultant during this step.
+After poll completes, log agent lifecycle (lifecycle only — no test payloads to Consultant):
+```bash
+# Cross-model tester result
+if [ -f ".bmb/handoffs/test-result-cross.md" ]; then
+  bmb_analytics_event "6" "tester-cross" "agent_complete" "info" "" "cross-model tester done"
+  SendMessage to Consultant: {"event":"agent_complete","step":"6","agent":"tester-cross","result":".bmb/handoffs/test-result-cross.md","ts":"$(date +%H:%M)"}
+else
+  bmb_analytics_event "6" "tester-cross" "agent_timeout" "warn" "" "cross-model tester timed out at ${CROSS_TIMEOUT}s"
+  SendMessage to Consultant: {"event":"agent_timeout","step":"6","agent":"tester-cross","elapsed_sec":$CROSS_TIMEOUT,"ts":"$(date +%H:%M)"}
+fi
+tmux kill-pane -t $CROSS_TEST 2>/dev/null || true
+
+# Claude tester result
+if [ -f ".bmb/handoffs/test-result-claude.md" ]; then
+  bmb_analytics_event "6" "tester-claude" "agent_complete" "info" "" "claude tester done"
+  SendMessage to Consultant: {"event":"agent_complete","step":"6","agent":"tester-claude","result":".bmb/handoffs/test-result-claude.md","ts":"$(date +%H:%M)"}
+else
+  bmb_analytics_event "6" "tester-claude" "agent_timeout" "warn" "" "claude tester timed out at ${CLAUDE_TIMEOUT}s"
+  SendMessage to Consultant: {"event":"agent_timeout","step":"6","agent":"tester-claude","elapsed_sec":$CLAUDE_TIMEOUT,"ts":"$(date +%H:%M)"}
+fi
+tmux kill-pane -t $CLAUDE_TEST 2>/dev/null || true
+```
+
+Cleanup test worktrees.
+**Consultant isolation**: do NOT send test results/payloads to consultant during this step — lifecycle events only.
 
 ```bash
 bmb_analytics_step_end "6" "testing"
@@ -438,6 +490,8 @@ CROSS_VERIFY=$(tmux split-pane -h -d -P -F '#{pane_id}' \
   'Read .bmb/handoffs/briefing.md. Work in .bmb/worktrees/verifier-cross/. \
    Run all verification checks. Do NOT read any *-claude.md files. \
    Write results to .bmb/handoffs/verify-result-cross.md.'")
+bmb_analytics_event "7" "verifier-cross" "agent_spawn" "info" "" "cross-model verifier spawned"
+SendMessage to Consultant: {"event":"agent_spawn","step":"7","agent":"verifier-cross","timeout_sec":$CROSS_TIMEOUT,"ts":"$(date +%H:%M)"}
 
 # Track B — Claude Verifier
 rm -f .bmb/handoffs/verify-result-claude.md
@@ -446,10 +500,35 @@ CLAUDE_VERIFY=$(tmux split-pane -h -d -P -F '#{pane_id}' \
   'Read .bmb/handoffs/plan-to-exec.md. Work in .bmb/worktrees/verifier-claude/. \
    Run all checks + code review. Do NOT read any *-cross.md files. \
    Write results to .bmb/handoffs/verify-result-claude.md.'")
+bmb_analytics_event "7" "verifier-claude" "agent_spawn" "info" "" "claude verifier spawned"
+SendMessage to Consultant: {"event":"agent_spawn","step":"7","agent":"verifier-claude","timeout_sec":$CLAUDE_TIMEOUT,"ts":"$(date +%H:%M)"}
 ```
 
-Poll with separate timeouts. Cleanup worktrees. Kill panes.
-**Consultant isolation**: do NOT send verification results to consultant during this step.
+Poll with separate timeouts. After poll completes, log agent lifecycle (lifecycle only — no verification payloads to Consultant):
+```bash
+# Cross-model verifier result
+if [ -f ".bmb/handoffs/verify-result-cross.md" ]; then
+  bmb_analytics_event "7" "verifier-cross" "agent_complete" "info" "" "cross-model verifier done"
+  SendMessage to Consultant: {"event":"agent_complete","step":"7","agent":"verifier-cross","result":".bmb/handoffs/verify-result-cross.md","ts":"$(date +%H:%M)"}
+else
+  bmb_analytics_event "7" "verifier-cross" "agent_timeout" "warn" "" "cross-model verifier timed out at ${CROSS_TIMEOUT}s"
+  SendMessage to Consultant: {"event":"agent_timeout","step":"7","agent":"verifier-cross","elapsed_sec":$CROSS_TIMEOUT,"ts":"$(date +%H:%M)"}
+fi
+tmux kill-pane -t $CROSS_VERIFY 2>/dev/null || true
+
+# Claude verifier result
+if [ -f ".bmb/handoffs/verify-result-claude.md" ]; then
+  bmb_analytics_event "7" "verifier-claude" "agent_complete" "info" "" "claude verifier done"
+  SendMessage to Consultant: {"event":"agent_complete","step":"7","agent":"verifier-claude","result":".bmb/handoffs/verify-result-claude.md","ts":"$(date +%H:%M)"}
+else
+  bmb_analytics_event "7" "verifier-claude" "agent_timeout" "warn" "" "claude verifier timed out at ${CLAUDE_TIMEOUT}s"
+  SendMessage to Consultant: {"event":"agent_timeout","step":"7","agent":"verifier-claude","elapsed_sec":$CLAUDE_TIMEOUT,"ts":"$(date +%H:%M)"}
+fi
+tmux kill-pane -t $CLAUDE_VERIFY 2>/dev/null || true
+```
+
+Cleanup worktrees.
+**Consultant isolation**: do NOT send verification results/payloads to consultant during this step — lifecycle events only.
 
 ```bash
 bmb_analytics_step_end "7" "verification"
@@ -497,6 +576,7 @@ If PASS: proceed to Step 9.
 
 **Post-briefing**: After Step 8 decision, SendMessage full results to Consultant (blind phase is now over):
 ```bash
+SendMessage to Consultant: {"event":"blind_phase_complete","step":"8","test_result":"PASS|FAIL","verify_result":"PASS|FAIL","ts":"$(date +%H:%M)"}
 SendMessage to Consultant: {full reconciliation summary — test results, verification outcomes, decision}
 ```
 
@@ -596,6 +676,7 @@ if [ -f ".bmb/analytics/analytics.db" ]; then
   if [ -f ".bmb/handoffs/analyst-report.md" ]; then
     bmb_analytics_event "10.5" "analyst" "agent_complete" "info" "" "analyst report ready"
     SendMessage to Consultant: {"event":"agent_complete","step":"10.5","agent":"analyst","result":".bmb/handoffs/analyst-report.md","ts":"$(date +%H:%M)"}
+    SendMessage to Consultant: {"event":"analyst_summary","step":"10.5","report":".bmb/handoffs/analyst-report.md","ts":"$(date +%H:%M)"}
   else
     bmb_analytics_event "10.5" "analyst" "agent_timeout" "warn" "" "analyst timed out at ${ANALYST_TIMEOUT}s"
     SendMessage to Consultant: {"event":"agent_timeout","step":"10.5","agent":"analyst","elapsed_sec":$ANALYST_TIMEOUT,"ts":"$(date +%H:%M)"}
@@ -728,6 +809,8 @@ Lead fills these fixed JSON one-liner templates when sending lifecycle events vi
 {"event":"verify_pass","step":"8","ts":"HH:MM"}
 {"event":"verify_fail","step":"8","category":"IMPL|ARCH|REQ","ts":"HH:MM","severity":"error","tier":"1"}
 {"event":"loop_back","step":"8","target":"N","reason":"TEXT","ts":"HH:MM","severity":"warn","tier":"1"}
+{"event":"blind_phase_complete","step":"8","test_result":"PASS|FAIL","verify_result":"PASS|FAIL","ts":"HH:MM"}
+{"event":"analyst_summary","step":"10.5","report":"PATH","ts":"HH:MM"}
 ```
 
 **Field rules**: No prose outside JSON. Stable field names. Omit irrelevant fields, no placeholders.

@@ -161,7 +161,7 @@ If the database exists but has no events for the current session:
 
 ## Execution Limits
 - **Default timeout**: 180 seconds (Lead-enforced)
-- **Configurable max**: 300 seconds (set by Lead via `BMB_ANALYST_TIMEOUT`)
+- **Configurable max**: 300 seconds (set by Lead via `.bmb/config.json` `timeouts.analyst`)
 - **Permission mode**: Spawned with `--permission-mode bypassPermissions` (read-only agent, no destructive ops)
 - **Single-pass only**: One analysis pass per invocation — no recursive spawning, no retry loops
 - If nearing timeout, emit partial report rather than no report

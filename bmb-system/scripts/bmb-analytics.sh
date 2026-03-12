@@ -101,6 +101,11 @@ BMB_ANALYTICS_DIR="${BMB_ANALYTICS_DIR}"
 BMB_ANALYTICS_STEPS="${BMB_ANALYTICS_STEPS}"
 BMB_ANALYTICS_ACTIVE=true
 EOF
+
+  # Export key variables so they are available in the current shell immediately
+  export BMB_ANALYTICS_ACTIVE=true
+  export BMB_ANALYTICS_DB="$BMB_ANALYTICS_DB"
+  export BMB_SESSION_ID="$session_id"
 }
 
 # Source state.env — returns 0 if analytics active, 1 if unavailable
@@ -151,7 +156,7 @@ EOF
 # Record step end — reads .current.env, computes elapsed, inserts with duration
 # Usage: bmb_analytics_step_end STEP LABEL [AGENT] [STATUS]
 bmb_analytics_step_end() {
-  local step="${1:?}" label="${2:?}" agent="${3:-}" status="${4:-complete}"
+  local step="${1:?}" label="${2:?}" agent="${3:-}" end_status="${4:-complete}"
   bmb_analytics_use_state || return 0
 
   local step_file="${BMB_ANALYTICS_STEPS}/${step}.current.env"
@@ -219,12 +224,12 @@ bmb_analytics_count_pattern() {
 # End session — update session row
 # Usage: bmb_analytics_end_session STATUS STEPS_COMPLETED
 bmb_analytics_end_session() {
-  local status="${1:-complete}" steps_completed="${2:-0}"
+  local end_status="${1:-complete}" steps_completed="${2:-0}"
   bmb_analytics_use_state || return 0
 
   _bmb_sql "$BMB_ANALYTICS_DB" \
-    "UPDATE sessions SET ended_at = strftime('%Y-%m-%dT%H:%M:%S','now','localtime'), status = '$(_bmb_sql_escape "$status")', steps_completed = ${steps_completed} WHERE session_id = '$(_bmb_sql_escape "$BMB_ANALYTICS_SESSION_ID")';";
+    "UPDATE sessions SET ended_at = strftime('%Y-%m-%dT%H:%M:%S','now','localtime'), status = '$(_bmb_sql_escape "$end_status")', steps_completed = ${steps_completed} WHERE session_id = '$(_bmb_sql_escape "$BMB_ANALYTICS_SESSION_ID")';";
 
-  # Cleanup step files
-  rm -f "${BMB_ANALYTICS_STEPS}"/*.current.env 2>/dev/null || true
+  # Cleanup step files (use find to avoid zsh no-match error)
+  find "${BMB_ANALYTICS_STEPS}" -name '*.current.env' -delete 2>/dev/null || true
 }

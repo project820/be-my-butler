@@ -49,6 +49,8 @@ Lead sends structured JSON one-liners. Parse and interpret for the user:
 {"event":"verify_pass","step":"8","ts":"HH:MM"}
 {"event":"verify_fail","step":"8","category":"IMPL|ARCH|REQ","ts":"HH:MM","severity":"error","tier":"1"}
 {"event":"loop_back","step":"8","target":"N","reason":"TEXT","ts":"HH:MM","severity":"warn","tier":"1"}
+{"event":"blind_phase_complete","step":"8","test_result":"PASS|FAIL","verify_result":"PASS|FAIL","ts":"HH:MM"}
+{"event":"analyst_summary","step":"10.5","report":"PATH","ts":"HH:MM"}
 ```
 
 **Via consultant-feed.md (durable narrative channel)**:
