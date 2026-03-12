@@ -159,6 +159,13 @@ If the database exists but has no events for the current session:
 - Write a minimal report noting "No telemetry data for this session"
 - Do NOT crash or error out
 
+## Execution Limits
+- **Default timeout**: 180 seconds (Lead-enforced)
+- **Configurable max**: 300 seconds (set by Lead via `BMB_ANALYST_TIMEOUT`)
+- **Permission mode**: Spawned with `--permission-mode bypassPermissions` (read-only agent, no destructive ops)
+- **Single-pass only**: One analysis pass per invocation — no recursive spawning, no retry loops
+- If nearing timeout, emit partial report rather than no report
+
 ## Rules
 - Use `sqlite3` only — no Python, no jq for DB queries
 - Do NOT auto-edit CLAUDE.md or any config files — recommendations only

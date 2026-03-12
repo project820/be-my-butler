@@ -19,6 +19,12 @@ _bmb_severity_rank() {
   esac
 }
 
+# Escape single quotes for safe SQL string interpolation
+# Usage: local escaped; escaped=$(_bmb_sql_escape "$value")
+_bmb_sql_escape() {
+  printf '%s' "$1" | sed "s/'/''/g"
+}
+
 # Safe sqlite3 wrapper — returns 1 if DB unavailable
 _bmb_sql() {
   local db="${1:?}" ; shift
@@ -85,14 +91,14 @@ SCHEMA
 
   # Insert session row (recipe = NULL at this point)
   _bmb_sql "$BMB_ANALYTICS_DB" \
-    "INSERT OR IGNORE INTO sessions (session_id, project_path) VALUES ('${session_id//\'/\'\'}', '${project_path//\'/\'\'}');"
+    "INSERT OR IGNORE INTO sessions (session_id, project_path) VALUES ('$(_bmb_sql_escape "$session_id")', '$(_bmb_sql_escape "$project_path")');"
 
   # Write state.env for cross-shell recovery
   cat > "$BMB_ANALYTICS_STATE" <<EOF
-BMB_ANALYTICS_SESSION_ID=${session_id}
-BMB_ANALYTICS_DB=${BMB_ANALYTICS_DB}
-BMB_ANALYTICS_DIR=${BMB_ANALYTICS_DIR}
-BMB_ANALYTICS_STEPS=${BMB_ANALYTICS_STEPS}
+BMB_ANALYTICS_SESSION_ID="${session_id}"
+BMB_ANALYTICS_DB="${BMB_ANALYTICS_DB}"
+BMB_ANALYTICS_DIR="${BMB_ANALYTICS_DIR}"
+BMB_ANALYTICS_STEPS="${BMB_ANALYTICS_STEPS}"
 BMB_ANALYTICS_ACTIVE=true
 EOF
 }
@@ -114,7 +120,7 @@ bmb_analytics_set_recipe() {
   local recipe="${1:?bmb_analytics_set_recipe requires RECIPE}"
   bmb_analytics_use_state || return 0
   _bmb_sql "$BMB_ANALYTICS_DB" \
-    "UPDATE sessions SET recipe = '${recipe//\'/\'\'}', recipe_decided_at = strftime('%Y-%m-%dT%H:%M:%S','now','localtime') WHERE session_id = '${BMB_ANALYTICS_SESSION_ID//\'/\'\'}' AND status = 'running';"
+    "UPDATE sessions SET recipe = '$(_bmb_sql_escape "$recipe")', recipe_decided_at = strftime('%Y-%m-%dT%H:%M:%S','now','localtime') WHERE session_id = '$(_bmb_sql_escape "$BMB_ANALYTICS_SESSION_ID")' AND status = 'running';"
 }
 
 # Record step start — computes next step_seq, persists .current.env
@@ -126,20 +132,20 @@ bmb_analytics_step_start() {
   # Compute next step_seq for this step in this session
   local seq
   seq=$(_bmb_sql "$BMB_ANALYTICS_DB" \
-    "SELECT COALESCE(MAX(step_seq), 0) + 1 FROM events WHERE session_id = '${BMB_ANALYTICS_SESSION_ID//\'/\'\'}' AND step = '${step//\'/\'\'}' AND event_type = 'step_start';")
+    "SELECT COALESCE(MAX(step_seq), 0) + 1 FROM events WHERE session_id = '$(_bmb_sql_escape "$BMB_ANALYTICS_SESSION_ID")' AND step = '$(_bmb_sql_escape "$step")' AND event_type = 'step_start';")
   seq="${seq:-1}"
 
   # Persist current step state
   local step_file="${BMB_ANALYTICS_STEPS}/${step}.current.env"
   cat > "$step_file" <<EOF
-STEP_START_TS=$(date +%s)
-STEP_SEQ=${seq}
-STEP_LABEL=${label}
+STEP_START_TS="$(date +%s)"
+STEP_SEQ="${seq}"
+STEP_LABEL="${label}"
 EOF
 
   # Insert step_start event
   _bmb_sql "$BMB_ANALYTICS_DB" \
-    "INSERT INTO events (session_id, step, step_seq, agent, event_type, severity, detail) VALUES ('${BMB_ANALYTICS_SESSION_ID//\'/\'\'}', '${step//\'/\'\'}', ${seq}, $([ -n "$agent" ] && echo "'${agent//\'/\'\'}'" || echo "NULL"), 'step_start', 'info', '${label//\'/\'\'}');"
+    "INSERT INTO events (session_id, step, step_seq, agent, event_type, severity, detail) VALUES ('$(_bmb_sql_escape "$BMB_ANALYTICS_SESSION_ID")', '$(_bmb_sql_escape "$step")', ${seq}, $([ -n "$agent" ] && echo "'$(_bmb_sql_escape "$agent")'" || echo "NULL"), 'step_start', 'info', '$(_bmb_sql_escape "$label")');"
 }
 
 # Record step end — reads .current.env, computes elapsed, inserts with duration
@@ -163,7 +169,7 @@ bmb_analytics_step_end() {
   fi
 
   _bmb_sql "$BMB_ANALYTICS_DB" \
-    "INSERT INTO events (session_id, step, step_seq, agent, event_type, severity, detail, duration_sec) VALUES ('${BMB_ANALYTICS_SESSION_ID//\'/\'\'}', '${step//\'/\'\'}', ${seq}, $([ -n "$agent" ] && echo "'${agent//\'/\'\'}'" || echo "NULL"), 'step_end', 'info', '${label//\'/\'\'}', ${duration_sec});"
+    "INSERT INTO events (session_id, step, step_seq, agent, event_type, severity, detail, duration_sec) VALUES ('$(_bmb_sql_escape "$BMB_ANALYTICS_SESSION_ID")', '$(_bmb_sql_escape "$step")', ${seq}, $([ -n "$agent" ] && echo "'$(_bmb_sql_escape "$agent")'" || echo "NULL"), 'step_end', 'info', '$(_bmb_sql_escape "$label")', ${duration_sec});"
 }
 
 # Record a point-in-time event
@@ -175,11 +181,11 @@ bmb_analytics_event() {
   # Compute step_seq
   local seq
   seq=$(_bmb_sql "$BMB_ANALYTICS_DB" \
-    "SELECT COALESCE(MAX(step_seq), 0) FROM events WHERE session_id = '${BMB_ANALYTICS_SESSION_ID//\'/\'\'}' AND step = '${step//\'/\'\'}';")
+    "SELECT COALESCE(MAX(step_seq), 0) FROM events WHERE session_id = '$(_bmb_sql_escape "$BMB_ANALYTICS_SESSION_ID")' AND step = '$(_bmb_sql_escape "$step")';")
   seq="${seq:-1}"
 
   _bmb_sql "$BMB_ANALYTICS_DB" \
-    "INSERT INTO events (session_id, step, step_seq, agent, event_type, severity, event_key, detail) VALUES ('${BMB_ANALYTICS_SESSION_ID//\'/\'\'}', '${step//\'/\'\'}', ${seq}, $([ -n "$agent" ] && echo "'${agent//\'/\'\'}'" || echo "NULL"), '${event_type//\'/\'\'}', '${severity//\'/\'\'}', $([ -n "$event_key" ] && echo "'${event_key//\'/\'\'}'" || echo "NULL"), $([ -n "$detail" ] && echo "'${detail//\'/\'\'}'" || echo "NULL"));"
+    "INSERT INTO events (session_id, step, step_seq, agent, event_type, severity, event_key, detail) VALUES ('$(_bmb_sql_escape "$BMB_ANALYTICS_SESSION_ID")', '$(_bmb_sql_escape "$step")', ${seq}, $([ -n "$agent" ] && echo "'$(_bmb_sql_escape "$agent")'" || echo "NULL"), '$(_bmb_sql_escape "$event_type")', '$(_bmb_sql_escape "$severity")', $([ -n "$event_key" ] && echo "'$(_bmb_sql_escape "$event_key")'" || echo "NULL"), $([ -n "$detail" ] && echo "'$(_bmb_sql_escape "$detail")'" || echo "NULL"));"
 }
 
 # Upsert pattern_counts — increment counter for recurring patterns
@@ -190,23 +196,23 @@ bmb_analytics_count_pattern() {
 
   local exists
   exists=$(_bmb_sql "$BMB_ANALYTICS_DB" \
-    "SELECT count FROM pattern_counts WHERE event_key = '${event_key//\'/\'\'}';")
+    "SELECT count FROM pattern_counts WHERE event_key = '$(_bmb_sql_escape "$event_key")';")
 
   if [ -n "$exists" ]; then
     # Update existing: increment count, update last_seen, session, and severity_max
     local current_max
     current_max=$(_bmb_sql "$BMB_ANALYTICS_DB" \
-      "SELECT severity_max FROM pattern_counts WHERE event_key = '${event_key//\'/\'\'}';")
+      "SELECT severity_max FROM pattern_counts WHERE event_key = '$(_bmb_sql_escape "$event_key")';")
     local new_sev="$current_max"
     if [ "$(_bmb_severity_rank "$severity")" -gt "$(_bmb_severity_rank "$current_max")" ]; then
       new_sev="$severity"
     fi
     _bmb_sql "$BMB_ANALYTICS_DB" \
-      "UPDATE pattern_counts SET count = count + 1, last_seen = strftime('%Y-%m-%dT%H:%M:%S','now','localtime'), last_session_id = '${BMB_ANALYTICS_SESSION_ID//\'/\'\'}', severity_max = '${new_sev//\'/\'\'}' WHERE event_key = '${event_key//\'/\'\'}';";
+      "UPDATE pattern_counts SET count = count + 1, last_seen = strftime('%Y-%m-%dT%H:%M:%S','now','localtime'), last_session_id = '$(_bmb_sql_escape "$BMB_ANALYTICS_SESSION_ID")', severity_max = '$(_bmb_sql_escape "$new_sev")' WHERE event_key = '$(_bmb_sql_escape "$event_key")';";
   else
     # Insert new pattern
     _bmb_sql "$BMB_ANALYTICS_DB" \
-      "INSERT INTO pattern_counts (event_key, category, description, last_session_id, severity_max) VALUES ('${event_key//\'/\'\'}', $([ -n "$category" ] && echo "'${category//\'/\'\'}'" || echo "NULL"), $([ -n "$description" ] && echo "'${description//\'/\'\'}'" || echo "NULL"), '${BMB_ANALYTICS_SESSION_ID//\'/\'\'}', '${severity//\'/\'\'}');"
+      "INSERT INTO pattern_counts (event_key, category, description, last_session_id, severity_max) VALUES ('$(_bmb_sql_escape "$event_key")', $([ -n "$category" ] && echo "'$(_bmb_sql_escape "$category")'" || echo "NULL"), $([ -n "$description" ] && echo "'$(_bmb_sql_escape "$description")'" || echo "NULL"), '$(_bmb_sql_escape "$BMB_ANALYTICS_SESSION_ID")', '$(_bmb_sql_escape "$severity")');"
   fi
 }
 
@@ -217,7 +223,7 @@ bmb_analytics_end_session() {
   bmb_analytics_use_state || return 0
 
   _bmb_sql "$BMB_ANALYTICS_DB" \
-    "UPDATE sessions SET ended_at = strftime('%Y-%m-%dT%H:%M:%S','now','localtime'), status = '${status//\'/\'\'}', steps_completed = ${steps_completed} WHERE session_id = '${BMB_ANALYTICS_SESSION_ID//\'/\'\'}';";
+    "UPDATE sessions SET ended_at = strftime('%Y-%m-%dT%H:%M:%S','now','localtime'), status = '$(_bmb_sql_escape "$status")', steps_completed = ${steps_completed} WHERE session_id = '$(_bmb_sql_escape "$BMB_ANALYTICS_SESSION_ID")';";
 
   # Cleanup step files
   rm -f "${BMB_ANALYTICS_STEPS}"/*.current.env 2>/dev/null || true
