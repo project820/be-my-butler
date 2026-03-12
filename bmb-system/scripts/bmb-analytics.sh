@@ -25,6 +25,16 @@ _bmb_sql_escape() {
   printf '%s' "$1" | sed "s/'/''/g"
 }
 
+# Produce SQL-safe value: quoted+escaped string, or NULL if empty
+# Usage: _bmb_sql_val "$var"  →  'escaped_value' or NULL
+_bmb_sql_val() {
+  if [ -n "$1" ]; then
+    printf "'%s'" "$(_bmb_sql_escape "$1")"
+  else
+    printf "NULL"
+  fi
+}
+
 # Safe sqlite3 wrapper — returns 1 if DB unavailable
 _bmb_sql() {
   local db="${1:?}" ; shift
@@ -150,7 +160,7 @@ EOF
 
   # Insert step_start event
   _bmb_sql "$BMB_ANALYTICS_DB" \
-    "INSERT INTO events (session_id, step, step_seq, agent, event_type, severity, detail) VALUES ('$(_bmb_sql_escape "$BMB_ANALYTICS_SESSION_ID")', '$(_bmb_sql_escape "$step")', ${seq}, $([ -n "$agent" ] && echo "'$(_bmb_sql_escape "$agent")'" || echo "NULL"), 'step_start', 'info', '$(_bmb_sql_escape "$label")');"
+    "INSERT INTO events (session_id, step, step_seq, agent, event_type, severity, detail) VALUES ('$(_bmb_sql_escape "$BMB_ANALYTICS_SESSION_ID")', '$(_bmb_sql_escape "$step")', ${seq}, $(_bmb_sql_val "$agent"), 'step_start', 'info', '$(_bmb_sql_escape "$label")');"
 }
 
 # Record step end — reads .current.env, computes elapsed, inserts with duration
@@ -174,7 +184,7 @@ bmb_analytics_step_end() {
   fi
 
   _bmb_sql "$BMB_ANALYTICS_DB" \
-    "INSERT INTO events (session_id, step, step_seq, agent, event_type, severity, detail, duration_sec) VALUES ('$(_bmb_sql_escape "$BMB_ANALYTICS_SESSION_ID")', '$(_bmb_sql_escape "$step")', ${seq}, $([ -n "$agent" ] && echo "'$(_bmb_sql_escape "$agent")'" || echo "NULL"), 'step_end', 'info', '$(_bmb_sql_escape "$label")', ${duration_sec});"
+    "INSERT INTO events (session_id, step, step_seq, agent, event_type, severity, detail, duration_sec) VALUES ('$(_bmb_sql_escape "$BMB_ANALYTICS_SESSION_ID")', '$(_bmb_sql_escape "$step")', ${seq}, $(_bmb_sql_val "$agent"), 'step_end', 'info', '$(_bmb_sql_escape "$label")', ${duration_sec});"
 }
 
 # Record a point-in-time event
@@ -190,7 +200,7 @@ bmb_analytics_event() {
   seq="${seq:-1}"
 
   _bmb_sql "$BMB_ANALYTICS_DB" \
-    "INSERT INTO events (session_id, step, step_seq, agent, event_type, severity, event_key, detail) VALUES ('$(_bmb_sql_escape "$BMB_ANALYTICS_SESSION_ID")', '$(_bmb_sql_escape "$step")', ${seq}, $([ -n "$agent" ] && echo "'$(_bmb_sql_escape "$agent")'" || echo "NULL"), '$(_bmb_sql_escape "$event_type")', '$(_bmb_sql_escape "$severity")', $([ -n "$event_key" ] && echo "'$(_bmb_sql_escape "$event_key")'" || echo "NULL"), $([ -n "$detail" ] && echo "'$(_bmb_sql_escape "$detail")'" || echo "NULL"));"
+    "INSERT INTO events (session_id, step, step_seq, agent, event_type, severity, event_key, detail) VALUES ('$(_bmb_sql_escape "$BMB_ANALYTICS_SESSION_ID")', '$(_bmb_sql_escape "$step")', ${seq}, $(_bmb_sql_val "$agent"), '$(_bmb_sql_escape "$event_type")', '$(_bmb_sql_escape "$severity")', $(_bmb_sql_val "$event_key"), $(_bmb_sql_val "$detail"));"
 }
 
 # Upsert pattern_counts — increment counter for recurring patterns
@@ -217,7 +227,7 @@ bmb_analytics_count_pattern() {
   else
     # Insert new pattern
     _bmb_sql "$BMB_ANALYTICS_DB" \
-      "INSERT INTO pattern_counts (event_key, category, description, last_session_id, severity_max) VALUES ('$(_bmb_sql_escape "$event_key")', $([ -n "$category" ] && echo "'$(_bmb_sql_escape "$category")'" || echo "NULL"), $([ -n "$description" ] && echo "'$(_bmb_sql_escape "$description")'" || echo "NULL"), '$(_bmb_sql_escape "$BMB_ANALYTICS_SESSION_ID")', '$(_bmb_sql_escape "$severity")');"
+      "INSERT INTO pattern_counts (event_key, category, description, last_session_id, severity_max) VALUES ('$(_bmb_sql_escape "$event_key")', $(_bmb_sql_val "$category"), $(_bmb_sql_val "$description"), '$(_bmb_sql_escape "$BMB_ANALYTICS_SESSION_ID")', '$(_bmb_sql_escape "$severity")');"
   fi
 }
 

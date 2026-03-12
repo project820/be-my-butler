@@ -1,0 +1,22 @@
+# BMB runtime data (secrets, logs, sessions)
+.bmb/
+
+# Environment and secrets
+.env
+.env.*
+\!.env.example
+
+# Credentials and tokens
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+credentials.json
+token.json
+service-account*.json
+*-credentials.json
+
+# OS artifacts
+.DS_Store
+Thumbs.db
