@@ -21,4 +21,14 @@ bmb_learn() {
   project=$(basename "$(pwd)")
   [ ! -f "$global" ] && printf "# BMB Global Learnings\n\n" > "$global"
   printf "%s [%s]\n" "$entry" "$project" >> "$global"
+
+  # Tier 3: Analytics mirror (structured, if analytics active)
+  if [ "${BMB_ANALYTICS_ACTIVE:-}" = "true" ] && type bmb_analytics_event >/dev/null 2>&1; then
+    local stable_key
+    stable_key=$(echo "$rule" | cksum | awk '{print $1}')
+    # Record individual learning event
+    bmb_analytics_event "${step}" "" "learning" "info" "${stable_key}" "${type}: ${what} -> ${rule}"
+    # Track frequency via pattern counting
+    bmb_analytics_count_pattern "${stable_key}" "learning" "${rule}" "info"
+  fi
 }

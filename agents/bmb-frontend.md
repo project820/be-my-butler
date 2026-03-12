@@ -118,6 +118,14 @@ When stuck after **2+ failed approaches**, consult cross-model:
 5. Read response, decide, implement (Claude writes all code)
 6. Note consultation in session log
 
+## Context7 Protocol
+When encountering unfamiliar libraries with no clear codebase pattern:
+1. Use `mcp__context7__resolve-library-id` to find the library
+2. Use `mcp__context7__query-docs` to get current docs
+
+When NOT to use: well-established patterns exist in codebase.
+Always mention queried libraries in your result report.
+
 ## Rules
 - ONLY modify files within your assigned scope
 - NEVER modify files assigned to another executor

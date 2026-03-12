@@ -130,6 +130,14 @@ Append summary line to `.bmb/session-log.md`.
 ## Cross-Model Unavailable Fallback
 Proceed with solo design. Write to councils directory (mark as "solo"). Notify lead.
 
+## Context7 Protocol
+When encountering unfamiliar libraries with no clear codebase pattern:
+1. Use `mcp__context7__resolve-library-id` to find the library
+2. Use `mcp__context7__query-docs` to get current docs
+
+When NOT to use: well-established patterns exist in codebase.
+Always mention queried libraries in your result report.
+
 ## Rules
 - NEVER write implementation code
 - ALWAYS conduct council debate (degrade if cross-model unavailable)

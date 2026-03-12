@@ -39,7 +39,7 @@ Pipeline REQUIRES tmux. Step 1 checks `$TMUX` — if unset, abort with clear err
 ### Agent Pane Pattern (spawn → wait → auto-die)
 ```bash
 # Spawn: create pane with actual command (no placeholders!)
-PANE=$(tmux split-pane -h -d -P -F '#{pane_id}' "CLAUDECODE= claude --agent {agent} --permission-mode dontAsk '{prompt}'")
+PANE=$(tmux split-pane -h -d -P -F '#{pane_id}' "CLAUDECODE= claude --agent {agent} --permission-mode bypassPermissions '{prompt}'")
 # Wait: poll for result file
 TIMEOUT={timeout_from_config}; ELAPSED=0
 while [ ! -f "{result_file}" ] && [ $ELAPSED -lt $TIMEOUT ]; do
@@ -107,6 +107,11 @@ ln -sfn ${SESSION_ID} .bmb/sessions/latest
 # Source auto-learning function
 source "$HOME/.claude/bmb-system/scripts/bmb-learn.sh"
 
+# Source analytics helpers
+source "$HOME/.claude/bmb-system/scripts/bmb-analytics.sh"
+bmb_analytics_init "$SESSION_ID"
+bmb_analytics_step_start "1" "setup"
+
 # Load past learnings — inject MISTAKE entries as Known Pitfalls
 PITFALLS=""
 if [ -f ".bmb/learnings.md" ]; then
@@ -143,8 +148,16 @@ Check for `.bmb/sessions/latest/session-prep.md` from previous session → if fo
 If `.bmb/councils/LEGEND.md` exists, read it to prime context.
 Send Telegram: pipeline start notification.
 
+```bash
+bmb_analytics_step_end "1" "setup"
+```
+
 ### Step 2: Brainstorm + Consultant (In-Process)
 **Key change from Kion: Lead does brainstorming directly (no brainstormer agent).**
+
+```bash
+bmb_analytics_step_start "2" "brainstorm"
+```
 
 1. Initialize consultant feed:
    ```bash
@@ -161,9 +174,10 @@ Send Telegram: pipeline start notification.
 2. Spawn Consultant pane:
    ```bash
    CONSULTANT=$(tmux split-pane -v -p 30 -d -P -F '#{pane_id}' \
-     "CLAUDECODE= claude --agent bmb-consultant --permission-mode dontAsk \
+     "CLAUDECODE= claude --agent bmb-consultant --permission-mode bypassPermissions \
      '.bmb/consultant-feed.md를 먼저 읽고, 작업 내용을 파악한 뒤 유저에게 인사하세요.'")
    echo "$CONSULTANT" > .bmb/consultant-pane-id
+   bmb_analytics_event "2" "consultant" "agent_spawn" "info" "" "consultant spawned"
    ```
 
 3. Lead conducts interactive brainstorming with user:
@@ -199,14 +213,39 @@ Send Telegram: pipeline start notification.
 
 5. Write compressed summary to `.bmb/handoffs/.compressed/briefing.summary.md`
 
+```bash
+bmb_analytics_step_end "2" "brainstorm"
+```
+
 ### Step 3: User Approval
+
+```bash
+bmb_analytics_step_start "3" "user-approval"
+```
+
 Present compressed briefing summary to user. Ask with 3 choices:
 - **YES** — proceed → `bmb_learn PRAISE "3" "Approved without changes" "Briefing quality was sufficient"`
 - **NO** — cancel
 - **수정** — modify → after applying changes: `bmb_learn CORRECTION "3" "{what user changed}" "{lesson from the correction}"`
 
+After user approves (YES or after modifications accepted):
+```bash
+bmb_analytics_set_recipe "$RECIPE"
+bmb_analytics_event "3" "" "user_approval" "info" "" "recipe: $RECIPE"
+bmb_analytics_step_end "3" "user-approval"
+```
+If user cancels (NO):
+```bash
+bmb_analytics_event "3" "" "user_rejection" "warn" "" "user cancelled"
+bmb_analytics_end_session "aborted" 3
+```
+
 ### Step 4: Architecture (Council)
 **Skip for bugfix/infra recipes.**
+
+```bash
+bmb_analytics_step_start "4" "architecture"
+```
 
 1. Create worktrees for execution (cleanup stale ones first):
    ```bash
@@ -224,16 +263,28 @@ Present compressed briefing summary to user. Ask with 3 choices:
    ```bash
    rm -f .bmb/handoffs/plan-to-exec.md
    ARCH_PANE=$(tmux split-pane -h -d -P -F '#{pane_id}' \
-     "CLAUDECODE= claude --agent bmb-architect --permission-mode dontAsk \
+     "CLAUDECODE= claude --agent bmb-architect --permission-mode bypassPermissions \
      'Read .bmb/handoffs/briefing.md and design the solution. Council debate is MANDATORY. \
       Write design to .bmb/handoffs/plan-to-exec.md. \
       Append summary to .bmb/session-log.md when done.'")
+   bmb_analytics_event "4" "architect" "agent_spawn" "info" "" "architect spawned"
+   SendMessage to Consultant: {"event":"agent_spawn","step":"4","agent":"architect","timeout_sec":$CROSS_TIMEOUT,"ts":"$(date +%H:%M)"}
    ```
    Poll with `cross_model` timeout. Kill pane when done.
+   ```bash
+   bmb_analytics_event "4" "architect" "agent_complete" "info" "" "architect done"
+   bmb_analytics_step_end "4" "architecture"
+   SendMessage to Consultant: {"event":"agent_complete","step":"4","agent":"architect","result":".bmb/handoffs/plan-to-exec.md","ts":"$(date +%H:%M)"}
+   ```
 
 Update consultant feed.
 
 ### Step 5: Execution
+
+```bash
+bmb_analytics_step_start "5" "execution"
+```
+
 Read plan-to-exec.md for team composition.
 
 **Frontend scope detection:**
@@ -251,10 +302,12 @@ rm -f .bmb/handoffs/exec-result.md
 WORKTREE_FLAG=""
 [ -d ".bmb/worktrees/executor" ] && WORKTREE_FLAG="Work in .bmb/worktrees/executor/ directory. "
 EXEC_PANE=$(tmux split-pane -h -d -P -F '#{pane_id}' \
-  "CLAUDECODE= claude --agent bmb-executor --permission-mode dontAsk \
+  "CLAUDECODE= claude --agent bmb-executor --permission-mode bypassPermissions \
   '${WORKTREE_FLAG}Read .bmb/handoffs/plan-to-exec.md. Implement changes. \
    Write report to .bmb/handoffs/exec-result.md. \
    Append summary to .bmb/session-log.md.'")
+bmb_analytics_event "5" "executor" "agent_spawn" "info" "" "executor spawned"
+SendMessage to Consultant: {"event":"agent_spawn","step":"5","agent":"executor","timeout_sec":$CLAUDE_TIMEOUT,"ts":"$(date +%H:%M)"}
 
 # Frontend (conditional)
 FRONT_PANE=""
@@ -263,10 +316,12 @@ if [ "$HAS_FRONTEND" = "true" ]; then
   WORKTREE_FLAG=""
   [ -d ".bmb/worktrees/frontend" ] && WORKTREE_FLAG="Work in .bmb/worktrees/frontend/ directory. "
   FRONT_PANE=$(tmux split-pane -h -d -P -F '#{pane_id}' \
-    "CLAUDECODE= claude --agent bmb-frontend --permission-mode dontAsk \
+    "CLAUDECODE= claude --agent bmb-frontend --permission-mode bypassPermissions \
     '${WORKTREE_FLAG}Read .bmb/handoffs/plan-to-exec.md. Implement frontend changes. \
      Write report to .bmb/handoffs/frontend-result.md. \
      Append summary to .bmb/session-log.md.'")
+  bmb_analytics_event "5" "frontend" "agent_spawn" "info" "" "frontend spawned"
+  SendMessage to Consultant: {"event":"agent_spawn","step":"5","agent":"frontend","timeout_sec":$CLAUDE_TIMEOUT,"ts":"$(date +%H:%M)"}
 fi
 ```
 
@@ -280,16 +335,30 @@ if [ -d ".bmb/worktrees/executor" ]; then
   git merge bmb-executor-${SESSION_ID} --no-edit || {
     echo "MERGE CONFLICT — escalating to user"
     bmb_learn MISTAKE "5.5" "Merge conflict in worktree merge" "Split file ownership clearly between executor and frontend"
+    bmb_analytics_event "5.5" "" "merge_conflict" "error" "" "executor worktree merge conflict"
+    SendMessage to Consultant: {"event":"merge_conflict","step":"5.5","files":"executor","ts":"$(date +%H:%M)","severity":"error","tier":"1"}
     # Present conflict to user
   }
+  bmb_analytics_event "5.5" "" "merge_success" "info" "" "executor worktree merged"
+  SendMessage to Consultant: {"event":"merge_success","step":"5.5","ts":"$(date +%H:%M)"}
   git worktree remove .bmb/worktrees/executor 2>/dev/null || true
 fi
 # Same for frontend worktree
 ```
 
+```bash
+bmb_analytics_step_end "5" "execution"
+```
+
 Update consultant feed.
 
 ### Step 6: Cross-Model Testing (Blind)
+
+```bash
+bmb_analytics_step_start "6" "testing"
+SendMessage to Consultant: {"event":"step_start","step":"6","label":"blind-testing","ts":"$(date +%H:%M)"}
+```
+
 Create test worktrees from merged HEAD:
 ```bash
 git worktree add .bmb/worktrees/tester-claude bmb-tester-claude-${SESSION_ID} 2>/dev/null || true
@@ -312,7 +381,7 @@ CROSS_TEST=$(tmux split-pane -h -d -P -F '#{pane_id}' \
 # Track B — Claude Tester
 rm -f .bmb/handoffs/test-result-claude.md
 CLAUDE_TEST=$(tmux split-pane -h -d -P -F '#{pane_id}' \
-  "CLAUDECODE= claude --agent bmb-tester --permission-mode dontAsk \
+  "CLAUDECODE= claude --agent bmb-tester --permission-mode bypassPermissions \
   'Read .bmb/handoffs/plan-to-exec.md. Work in .bmb/worktrees/tester-claude/. \
    Write and run tests. Do NOT read any *-cross.md files. \
    Write results to .bmb/handoffs/test-result-claude.md.'")
@@ -339,7 +408,18 @@ done
 Cleanup test worktrees. Kill panes.
 **Consultant isolation**: do NOT send test results to consultant during this step.
 
+```bash
+bmb_analytics_step_end "6" "testing"
+SendMessage to Consultant: {"event":"step_end","step":"6","label":"blind-testing","duration_sec":$ELAPSED,"ts":"$(date +%H:%M)"}
+```
+
 ### Step 7: Cross-Model Verification (Blind)
+
+```bash
+bmb_analytics_step_start "7" "verification"
+SendMessage to Consultant: {"event":"step_start","step":"7","label":"blind-verification","ts":"$(date +%H:%M)"}
+```
+
 Same pattern as Step 6 but for verification:
 ```bash
 git worktree add .bmb/worktrees/verifier-claude bmb-verifier-claude-${SESSION_ID} 2>/dev/null || true
@@ -362,7 +442,7 @@ CROSS_VERIFY=$(tmux split-pane -h -d -P -F '#{pane_id}' \
 # Track B — Claude Verifier
 rm -f .bmb/handoffs/verify-result-claude.md
 CLAUDE_VERIFY=$(tmux split-pane -h -d -P -F '#{pane_id}' \
-  "CLAUDECODE= claude --agent bmb-verifier --permission-mode dontAsk \
+  "CLAUDECODE= claude --agent bmb-verifier --permission-mode bypassPermissions \
   'Read .bmb/handoffs/plan-to-exec.md. Work in .bmb/worktrees/verifier-claude/. \
    Run all checks + code review. Do NOT read any *-cross.md files. \
    Write results to .bmb/handoffs/verify-result-claude.md.'")
@@ -371,7 +451,17 @@ CLAUDE_VERIFY=$(tmux split-pane -h -d -P -F '#{pane_id}' \
 Poll with separate timeouts. Cleanup worktrees. Kill panes.
 **Consultant isolation**: do NOT send verification results to consultant during this step.
 
+```bash
+bmb_analytics_step_end "7" "verification"
+SendMessage to Consultant: {"event":"step_end","step":"7","label":"blind-verification","duration_sec":$ELAPSED,"ts":"$(date +%H:%M)"}
+```
+
 ### Step 8: Reconciliation
+
+```bash
+bmb_analytics_step_start "8" "reconciliation"
+```
+
 Read ONLY structured summaries from both model reports.
 
 **Failure classification** (determines loop-back target):
@@ -393,41 +483,138 @@ Read ONLY structured summaries from both model reports.
 Write unified results to `.bmb/handoffs/verify-result.md`.
 If FAIL: classify failure, inform user, loop back to appropriate step.
   `bmb_learn MISTAKE "8" "{failure description}" "{lesson from failure category}"`
+  ```bash
+  bmb_analytics_event "8" "" "verify_fail" "error" "" "category: {CATEGORY}"
+  bmb_analytics_event "8" "" "loop_back" "warn" "" "target: step {N}, reason: {reason}"
+  SendMessage to Consultant: {"event":"verify_fail","step":"8","category":"{CATEGORY}","ts":"$(date +%H:%M)","severity":"error","tier":"1"}
+  SendMessage to Consultant: {"event":"loop_back","step":"8","target":"{N}","reason":"{reason}","ts":"$(date +%H:%M)","severity":"warn","tier":"1"}
+  ```
 If PASS: proceed to Step 9.
+  ```bash
+  bmb_analytics_event "8" "" "verify_pass" "info" "" "all checks passed"
+  SendMessage to Consultant: {"event":"verify_pass","step":"8","ts":"$(date +%H:%M)"}
+  ```
+
+**Post-briefing**: After Step 8 decision, SendMessage full results to Consultant (blind phase is now over):
+```bash
+SendMessage to Consultant: {full reconciliation summary — test results, verification outcomes, decision}
+```
+
+```bash
+bmb_analytics_step_end "8" "reconciliation"
+```
+
 Update consultant feed (now safe — blind phase is over).
 
 ### Step 9: Simplification + Re-verify
+
+```bash
+bmb_analytics_step_start "9" "simplification"
+```
+
 Spawn bmb-simplifier:
 ```bash
 rm -f .bmb/handoffs/simplify-result.md
 SIMP_PANE=$(tmux split-pane -h -d -P -F '#{pane_id}' \
-  "CLAUDECODE= claude --agent bmb-simplifier --permission-mode dontAsk \
+  "CLAUDECODE= claude --agent bmb-simplifier --permission-mode bypassPermissions \
   'Read .bmb/handoffs/verify-result.md — only run if verification PASSED. \
    Review all recently modified files. Make minimal safe improvements. \
    Run build + tests after changes (re-verify). \
    Write report to .bmb/handoffs/simplify-result.md.'")
+bmb_analytics_event "9" "simplifier" "agent_spawn" "info" "" "simplifier spawned"
+SendMessage to Consultant: {"event":"agent_spawn","step":"9","agent":"simplifier","timeout_sec":$CLAUDE_TIMEOUT,"ts":"$(date +%H:%M)"}
 ```
 Poll with `claude_agent` timeout. Kill pane.
 
 If simplifier reports re-verification failure: revert simplification changes, note in session log, proceed anyway (original code already passed).
   `bmb_learn MISTAKE "9" "Simplification broke tests" "Run tests before committing cleanup"`
 
+```bash
+bmb_analytics_step_end "9" "simplification"
+```
+
 Update consultant feed.
 
 ### Step 10: Docs Update
+
+```bash
+bmb_analytics_step_start "10" "docs-update"
+```
+
 Spawn bmb-writer:
 ```bash
 rm -f .bmb/handoffs/docs-update.md
 WRITER_PANE=$(tmux split-pane -h -d -P -F '#{pane_id}' \
-  "CLAUDECODE= claude --agent bmb-writer --permission-mode dontAsk \
+  "CLAUDECODE= claude --agent bmb-writer --permission-mode bypassPermissions \
   'Read .bmb/handoffs/ and .bmb/session-log.md for context. \
    Update all target documentation. Remove dead file references. \
    Write change summary to .bmb/handoffs/docs-update.md.'")
+bmb_analytics_event "10" "writer" "agent_spawn" "info" "" "writer spawned"
+SendMessage to Consultant: {"event":"agent_spawn","step":"10","agent":"writer","timeout_sec":$WRITER_TIMEOUT,"ts":"$(date +%H:%M)"}
 ```
 Poll with `writer` timeout. Kill pane.
+
+```bash
+bmb_analytics_step_end "10" "docs-update"
+```
+
 Update consultant feed.
 
+### Step 10.5: Retrospective Analysis
+
+```bash
+bmb_analytics_step_start "10.5" "analyst"
+```
+
+**Skip if analytics DB missing.** Never block cleanup.
+```bash
+if [ -f ".bmb/analytics/analytics.db" ]; then
+  # Read analyst timeout from config (default 180s, max 300s)
+  ANALYST_TIMEOUT=180
+  if [ -f ".bmb/config.json" ]; then
+    CONFIGURED=$(python3 -c "import json; print(json.load(open('.bmb/config.json')).get('timeouts',{}).get('analyst',180))" 2>/dev/null)
+    [ -n "$CONFIGURED" ] && ANALYST_TIMEOUT="$CONFIGURED"
+  fi
+  [ "$ANALYST_TIMEOUT" -gt 300 ] && ANALYST_TIMEOUT=300
+
+  rm -f .bmb/handoffs/analyst-report.md
+  ANALYST_PANE=$(tmux split-pane -h -d -P -F '#{pane_id}' \
+    "CLAUDECODE= claude --agent bmb-analyst --permission-mode bypassPermissions \
+    'Analyze .bmb/analytics/analytics.db for the current session. \
+     Read .bmb/learnings.md for context. \
+     Write report to .bmb/handoffs/analyst-report.md and summary to .bmb/handoffs/analyst-report.summary.md. \
+     Append summary to .bmb/session-log.md.'")
+  bmb_analytics_event "10.5" "analyst" "agent_spawn" "info" "" "analyst spawned"
+  SendMessage to Consultant: {"event":"agent_spawn","step":"10.5","agent":"analyst","timeout_sec":$ANALYST_TIMEOUT,"ts":"$(date +%H:%M)"}
+
+  # Poll with analyst timeout
+  ELAPSED=0
+  while [ ! -f ".bmb/handoffs/analyst-report.md" ] && [ $ELAPSED -lt $ANALYST_TIMEOUT ]; do
+    sleep 5; ELAPSED=$((ELAPSED+5))
+  done
+
+  if [ -f ".bmb/handoffs/analyst-report.md" ]; then
+    bmb_analytics_event "10.5" "analyst" "agent_complete" "info" "" "analyst report ready"
+    SendMessage to Consultant: {"event":"agent_complete","step":"10.5","agent":"analyst","result":".bmb/handoffs/analyst-report.md","ts":"$(date +%H:%M)"}
+  else
+    bmb_analytics_event "10.5" "analyst" "agent_timeout" "warn" "" "analyst timed out at ${ANALYST_TIMEOUT}s"
+    SendMessage to Consultant: {"event":"agent_timeout","step":"10.5","agent":"analyst","elapsed_sec":$ANALYST_TIMEOUT,"ts":"$(date +%H:%M)"}
+    echo "| $(date +%H:%M) | 10.5 | Analyst timed out at ${ANALYST_TIMEOUT}s |" >> .bmb/session-log.md
+  fi
+  tmux kill-pane -t $ANALYST_PANE 2>/dev/null || true
+fi
+```
+
+```bash
+bmb_analytics_step_end "10.5" "analyst"
+```
+
 ### Step 11: Cleanup + Session Prep
+
+```bash
+bmb_analytics_step_start "11" "cleanup"
+```
+
 1. Update consultant feed with final summary
 2. **Kill Consultant pane**:
    ```bash
@@ -490,7 +677,13 @@ Update consultant feed.
 
 11. Present final summary to user
 12. Send Telegram: pipeline completion
-13. Ask user: "계속할까요, 아니면 여기서 마칠까요?"
+13. End analytics session:
+    ```bash
+    bmb_analytics_step_end "11" "cleanup"
+    bmb_analytics_end_session "complete" 11
+    ```
+
+14. Ask user: "계속할까요, 아니면 여기서 마칠까요?"
     - 계속 → new session from Step 1
     - 마침 → end
 
@@ -498,12 +691,46 @@ Update consultant feed.
 
 | Type | Pipeline |
 |------|----------|
-| feature | consultant + brainstorm(in-process) → architect(council) → executor + frontend → tester(cross) → verifier(cross) → simplifier → writer |
-| bugfix | consultant + brainstorm(in-process) → executor → tester(cross) → verifier(cross) → writer |
-| refactor | consultant + brainstorm(in-process) → architect(council) → executor + frontend → verifier(cross) → simplifier → writer |
+| feature | consultant + brainstorm(in-process) → architect(council) → executor + frontend → tester(cross) → verifier(cross) → simplifier → writer → analyst |
+| bugfix | consultant + brainstorm(in-process) → executor → tester(cross) → verifier(cross) → writer → analyst |
+| refactor | consultant + brainstorm(in-process) → architect(council) → executor + frontend → verifier(cross) → simplifier → writer → analyst |
 | research | consultant + brainstorm(in-process) only |
 | review | consultant + brainstorm(in-process) → verifier(review mode) |
-| infra | consultant + brainstorm(in-process) → executor → verifier(cross) → writer |
+| infra | consultant + brainstorm(in-process) → executor → verifier(cross) → writer → analyst |
+
+## 3-TIER REPORTING HIERARCHY
+
+Classify events before reporting to user via Consultant:
+
+| Tier | When | Examples | Severity |
+|------|------|----------|----------|
+| **1 — Immediate** | System-critical, user must know NOW | Rollback, system failure, design change, major plan deviation, merge conflict, verify fail | `error`, `critical` |
+| **2 — Post-hoc** | Notable but non-blocking | Library change, agent respawn, minor plan adjustment | `warn` |
+| **3 — No report** | Routine operational events | File read/write, test execution, normal agent lifecycle | `info` |
+
+**Rules**:
+- Tier 1 → SendMessage to Consultant immediately
+- Tier 2 → Log in analytics + include in session summary
+- Tier 3 → Log in analytics only, no Consultant notification
+
+## CONSULTANT EVENT TEMPLATES
+
+Lead fills these fixed JSON one-liner templates when sending lifecycle events via SendMessage. Do NOT improvise format.
+
+```
+{"event":"agent_spawn","step":"N","agent":"NAME","timeout_sec":N,"ts":"HH:MM"}
+{"event":"agent_complete","step":"N","agent":"NAME","result":"PATH","ts":"HH:MM"}
+{"event":"agent_timeout","step":"N","agent":"NAME","elapsed_sec":N,"ts":"HH:MM"}
+{"event":"step_start","step":"N","label":"NAME","ts":"HH:MM"}
+{"event":"step_end","step":"N","label":"NAME","duration_sec":N,"ts":"HH:MM"}
+{"event":"merge_success","step":"5.5","ts":"HH:MM"}
+{"event":"merge_conflict","step":"5.5","files":"LIST","ts":"HH:MM","severity":"error","tier":"1"}
+{"event":"verify_pass","step":"8","ts":"HH:MM"}
+{"event":"verify_fail","step":"8","category":"IMPL|ARCH|REQ","ts":"HH:MM","severity":"error","tier":"1"}
+{"event":"loop_back","step":"8","target":"N","reason":"TEXT","ts":"HH:MM","severity":"warn","tier":"1"}
+```
+
+**Field rules**: No prose outside JSON. Stable field names. Omit irrelevant fields, no placeholders.
 
 ## CONTEXT PROTECTION PROTOCOL
 - After reading a handoff, summarize it in 2-3 lines
