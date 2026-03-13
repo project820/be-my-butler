@@ -18,29 +18,49 @@ PYEOF
 }
 
 bmb_config_load() {
-  # Merge global profile defaults + local config (local overrides global)
+  # Merge defaults.json (base) + global profile defaults + local config
+  # Priority: local > global profile > defaults.json
   # Exports merged JSON to stdout
-  _BMB_GP="$GLOBAL_PROFILE" _BMB_LC="$LOCAL_CONFIG" python3 << 'PYEOF'
+  DEFAULTS_JSON="$HOME/.claude/bmb-system/config/defaults.json"
+  _BMB_DF="$DEFAULTS_JSON" _BMB_GP="$GLOBAL_PROFILE" _BMB_LC="$LOCAL_CONFIG" python3 << 'PYEOF'
 import json, sys, os
+
+def shallow_merge(base, overlay):
+    """Shallow merge: overlay top-level keys into base (dict keys merge, others replace)"""
+    for k, v in overlay.items():
+        if k.startswith('_'): continue
+        if isinstance(v, dict) and k in base and isinstance(base[k], dict):
+            base[k].update(v)
+        else:
+            base[k] = v
+
 merged = {}
+df = os.path.expanduser(os.environ['_BMB_DF'])
 gp = os.path.expanduser(os.environ['_BMB_GP'])
 lc = os.environ['_BMB_LC']
-# Load global defaults section
+
+# Layer 1: Load hardcoded defaults from defaults.json
+if os.path.isfile(df):
+    d = json.load(open(df))
+    # Exclude meta keys (_profile_template, version) — only runtime config
+    for k, v in d.items():
+        if k.startswith('_') or k == 'version': continue
+        merged[k] = v
+
+# Layer 2: Overlay global profile defaults section
 if os.path.isfile(gp):
     g = json.load(open(gp))
-    merged = g.get('defaults', {})
+    if 'defaults' in g:
+        shallow_merge(merged, g['defaults'])
     # Also carry user + consultant_persona for agents to read
     if 'user' in g: merged['_user'] = g['user']
     if 'consultant_persona' in g: merged['_consultant_persona'] = g['consultant_persona']
-# Overlay local config (shallow per top-level key)
+
+# Layer 3: Overlay local config (highest priority)
 if os.path.isfile(lc):
     local = json.load(open(lc))
-    for k, v in local.items():
-        if k.startswith('_'): continue
-        if isinstance(v, dict) and k in merged and isinstance(merged[k], dict):
-            merged[k].update(v)
-        else:
-            merged[k] = v
+    shallow_merge(merged, local)
+
 json.dump(merged, sys.stdout, ensure_ascii=False)
 PYEOF
 }
@@ -48,25 +68,42 @@ PYEOF
 bmb_config_get() {
   # Usage: bmb_config_get "timeouts.claude_agent"
   local key="$1"
-  _BMB_KEY="$key" _BMB_GP="$GLOBAL_PROFILE" _BMB_LC="$LOCAL_CONFIG" python3 << 'PYEOF'
+  DEFAULTS_JSON="$HOME/.claude/bmb-system/config/defaults.json"
+  _BMB_KEY="$key" _BMB_DF="$DEFAULTS_JSON" _BMB_GP="$GLOBAL_PROFILE" _BMB_LC="$LOCAL_CONFIG" python3 << 'PYEOF'
 import json, sys, os
 
+def shallow_merge(base, overlay):
+    for k, v in overlay.items():
+        if k.startswith('_'): continue
+        if isinstance(v, dict) and k in base and isinstance(base[k], dict):
+            base[k].update(v)
+        else:
+            base[k] = v
+
 merged = {}
+df = os.path.expanduser(os.environ['_BMB_DF'])
 gp = os.path.expanduser(os.environ['_BMB_GP'])
 lc = os.environ['_BMB_LC']
+
+# Layer 1: defaults.json
+if os.path.isfile(df):
+    d = json.load(open(df))
+    for k, v in d.items():
+        if k.startswith('_') or k == 'version': continue
+        merged[k] = v
+
+# Layer 2: global profile defaults
 if os.path.isfile(gp):
     g = json.load(open(gp))
-    merged = g.get('defaults', {})
+    if 'defaults' in g:
+        shallow_merge(merged, g['defaults'])
     if 'user' in g: merged['_user'] = g['user']
     if 'consultant_persona' in g: merged['_consultant_persona'] = g['consultant_persona']
+
+# Layer 3: local config
 if os.path.isfile(lc):
     local = json.load(open(lc))
-    for k, v in local.items():
-        if k.startswith('_'): continue
-        if isinstance(v, dict) and k in merged and isinstance(merged[k], dict):
-            merged[k].update(v)
-        else:
-            merged[k] = v
+    shallow_merge(merged, local)
 
 keys = os.environ['_BMB_KEY'].split('.')
 d = merged

@@ -142,11 +142,14 @@ If Lead detects context usage approaching limits (~75% of conversation length):
 
 2. **Create carry-forward (atomic write via temp+mv — council fix):**
    ```bash
-   cat > .bmb/sessions/${SESSION_ID}/carry-forward.md.tmp << EOF
+   CARRY_TIMESTAMP=$(date '+%Y-%m-%d %H:%M KST')
+   cat > .bmb/sessions/${SESSION_ID}/carry-forward.md.tmp << 'HEREDOC_EOF'
    # Carry Forward — Context Overflow
+   HEREDOC_EOF
+   cat >> .bmb/sessions/${SESSION_ID}/carry-forward.md.tmp << HEREDOC_EOF
    Session: ${SESSION_ID}
    Reason: Context limit approaching
-   Generated: $(date '+%Y-%m-%d %H:%M KST')
+   Generated: ${CARRY_TIMESTAMP}
 
    ## Brainstorm Progress
    - Questions answered: {count}
@@ -159,7 +162,7 @@ If Lead detects context usage approaching limits (~75% of conversation length):
 
    ## Suggested Resume Prompt
    "/BMB-brainstorm — 이전 세션 이어서"
-   EOF
+   HEREDOC_EOF
    mv .bmb/sessions/${SESSION_ID}/carry-forward.md.tmp .bmb/sessions/${SESSION_ID}/carry-forward.md
    ```
 
@@ -243,7 +246,7 @@ Runs AFTER brainstorm summary + idea creation, BEFORE project creation subroutin
 ### Step 1: Generate Plan Draft
 Lead generates a structured plan document from the brainstorm:
 ```bash
-cat > .bmb/sessions/${SESSION_ID}/plan-draft.md << EOF
+cat > .bmb/sessions/${SESSION_ID}/plan-draft.md << 'HEREDOC_EOF'
 # {IDEA_TITLE} — Implementation Plan (Draft)
 
 ## Context
@@ -263,15 +266,14 @@ cat > .bmb/sessions/${SESSION_ID}/plan-draft.md << EOF
 
 ## Risk Areas
 {potential issues identified}
-EOF
+HEREDOC_EOF
 ```
 
 **NOTE**: 절대 EnterPlanMode를 호출하지 않는다. 파일로 직접 생성한다.
 
-### Step 2: Send to Codex for Review (Review Issue 2 — codex exec)
+### Step 2: Send to Cross-Model for Review (via cross-model-run.sh wrapper)
 ```bash
 REVIEW_FILE=".bmb/sessions/${SESSION_ID}/plan-review.md"
-EVENTS_FILE=".bmb/sessions/${SESSION_ID}/plan-review.events.jsonl"
 
 # Adaptive timeout based on plan size (Review recommendation)
 PLAN_LINES=$(wc -l < ".bmb/sessions/${SESSION_ID}/plan-draft.md" 2>/dev/null || echo 0)
@@ -287,19 +289,7 @@ CODEX_TIMEOUT=$CFG_TIMEOUT
 [ "$CODEX_TIMEOUT" -lt 300 ] && CODEX_TIMEOUT=300
 [ "$CODEX_TIMEOUT" -gt 1800 ] && CODEX_TIMEOUT=1800
 
-# Model and reasoning effort from config (defaults: gpt-5.4, xhigh)
-CODEX_REVIEW_MODEL=$(bmb_config_get "cross_model.codex_review_model" || echo "gpt-5.4")
-CODEX_REVIEW_EFFORT=$(bmb_config_get "cross_model.codex_review_effort" || echo "xhigh")
-
-# Check if codex CLI is available
-if ! command -v codex &>/dev/null; then
-  # Must get user approval — silent skip is rejected (council decision)
-  AskUserQuestion: "Codex CLI가 설치되어 있지 않습니다. 리뷰 없이 진행할까요? (yes/no)"
-  # If no: abort project creation
-  # If yes: skip to Phase 4.1 without review
-fi
-
-# Submit via codex exec (non-interactive, stable for automation)
+# Submit via cross-model-run.sh wrapper (--profile review, -o output, - for stdin)
 {
   cat <<'PROMPT_EOF'
 다음 계획 문서를 철저히 리뷰해주세요.
@@ -308,41 +298,27 @@ fi
 PROMPT_EOF
   echo
   cat ".bmb/sessions/${SESSION_ID}/plan-draft.md"
-} | codex exec \
-    --skip-git-repo-check \
-    --full-auto \
-    --json \
-    -m "$CODEX_REVIEW_MODEL" \
-    -c reasoning_effort="$CODEX_REVIEW_EFFORT" \
+} | ~/.claude/bmb-system/scripts/cross-model-run.sh \
+    --profile review \
     -o "$REVIEW_FILE" \
-    - > "$EVENTS_FILE" 2>&1 &
-CODEX_PID=$!
+    - &
+REVIEW_PID=$!
 
-echo "$(date +%H:%M)|Lead|CONTEXT|Codex plan review started (PID: $CODEX_PID, model: $CODEX_REVIEW_MODEL, timeout: ${CODEX_TIMEOUT}s)" > .bmb/sessions/${SESSION_ID}/log-pipe
-echo "### $(date +%H:%M) Codex 계획 리뷰 시작 (model: $CODEX_REVIEW_MODEL, effort: $CODEX_REVIEW_EFFORT)" >> .bmb/consultant-feed.md
+echo "$(date +%H:%M)|Lead|CONTEXT|Cross-model plan review started (PID: $REVIEW_PID, timeout: ${CODEX_TIMEOUT}s)" > .bmb/sessions/${SESSION_ID}/log-pipe
+echo "### $(date +%H:%M) Cross-model 계획 리뷰 시작" >> .bmb/consultant-feed.md
 ```
 
 Tell user: "Codex에게 계획 리뷰를 요청했어요. 잠시 기다려주세요..."
 
 ### Step 3: Wait & Present Review
 ```bash
-# Wait with adaptive timeout + 3-min polling (Review recommendation)
-CODEX_DEADLINE=$((SECONDS + CODEX_TIMEOUT))
-POLL_INTERVAL=180  # 3 minutes
-LAST_POLL=$SECONDS
-while kill -0 $CODEX_PID 2>/dev/null; do
-  [ $SECONDS -gt $CODEX_DEADLINE ] && kill $CODEX_PID 2>/dev/null && break
-  # 3-min status check: monitor EVENTS_FILE (streams during execution, not REVIEW_FILE which writes at end)
-  if [ $((SECONDS - LAST_POLL)) -ge $POLL_INTERVAL ]; then
-    LAST_POLL=$SECONDS
-    if [ -f "$EVENTS_FILE" ]; then
-      EVENTS_SIZE=$(wc -c < "$EVENTS_FILE" 2>/dev/null || echo 0)
-      echo "$(date +%H:%M)|Lead|CONTEXT|Codex review in progress (events: ${EVENTS_SIZE} bytes)" > .bmb/sessions/${SESSION_ID}/log-pipe
-    fi
-  fi
+# Wait with adaptive timeout
+REVIEW_DEADLINE=$((SECONDS + CODEX_TIMEOUT))
+while kill -0 $REVIEW_PID 2>/dev/null; do
+  [ $SECONDS -gt $REVIEW_DEADLINE ] && kill $REVIEW_PID 2>/dev/null && break
   sleep 5
 done
-wait $CODEX_PID 2>/dev/null
+wait $REVIEW_PID 2>/dev/null
 
 # Early completion: proceed immediately without idle wait
 ```
@@ -439,28 +415,35 @@ Only runs when user chooses "프로젝트로 전환" in Phase 4.
    ```bash
    if [ -f "$PROJECT_PATH/CLAUDE.md" ]; then
      # Existing CLAUDE.md — APPEND brainstorm context, do NOT overwrite
-     cat >> "$PROJECT_PATH/CLAUDE.md" << EOF
-
-   ## BMB Brainstorm Origin
-   - BMB Brainstorm Session: ${SESSION_ID}
-   - BMB Idea: ${IDEA_ID}
-   - Added: $(date '+%Y-%m-%d')
+     # Use quoted heredoc to prevent shell interpolation of user-derived content
+     BMB_ADDED_DATE=$(date '+%Y-%m-%d')
+     {
+       echo ""
+       echo "## BMB Brainstorm Origin"
+       echo "- BMB Brainstorm Session: ${SESSION_ID}"
+       echo "- BMB Idea: ${IDEA_ID}"
+       echo "- Added: ${BMB_ADDED_DATE}"
+       cat << 'HEREDOC_EOF'
 
    ## Brainstorm Goals
    {extracted from brainstorm summary}
 
    ## Brainstorm Key Decisions
    {extracted from brainstorm — decisions made}
-   EOF
+   HEREDOC_EOF
+     } >> "$PROJECT_PATH/CLAUDE.md"
    else
      # New project — create fresh CLAUDE.md
-     cat > "$PROJECT_PATH/CLAUDE.md" << EOF
-   # {Project Name}
-
-   ## Origin
-   - BMB Brainstorm Session: ${SESSION_ID}
-   - BMB Idea: ${IDEA_ID}
-   - Created: $(date '+%Y-%m-%d')
+     # Use echo for safe shell vars, quoted heredoc for user-derived content
+     BMB_CREATED_DATE=$(date '+%Y-%m-%d')
+     {
+       echo "# {Project Name}"
+       echo ""
+       echo "## Origin"
+       echo "- BMB Brainstorm Session: ${SESSION_ID}"
+       echo "- BMB Idea: ${IDEA_ID}"
+       echo "- Created: ${BMB_CREATED_DATE}"
+       cat << 'HEREDOC_EOF'
 
    ## Goals
    {extracted from brainstorm summary}
@@ -473,7 +456,8 @@ Only runs when user chooses "프로젝트로 전환" in Phase 4.
 
    ## Tech Stack
    {if discussed during brainstorm}
-   EOF
+   HEREDOC_EOF
+     } > "$PROJECT_PATH/CLAUDE.md"
    fi
    ```
 
@@ -535,11 +519,15 @@ PYEOF
 ## Phase 5: Cleanup
 ```bash
 # Generate carry-forward (atomic: temp+mv — council fix)
-cat > .bmb/sessions/${SESSION_ID}/carry-forward.md.tmp << EOF
-# Carry Forward
-Session: ${SESSION_ID}
-Generated: $(date '+%Y-%m-%d %H:%M KST')
-Project: $(pwd)
+# Use echo for safe shell vars, quoted heredoc for user-derived content
+CF_TIMESTAMP=$(date '+%Y-%m-%d %H:%M KST')
+CF_PROJECT=$(pwd)
+{
+  echo "# Carry Forward"
+  echo "Session: ${SESSION_ID}"
+  echo "Generated: ${CF_TIMESTAMP}"
+  echo "Project: ${CF_PROJECT}"
+  cat << 'HEREDOC_EOF'
 
 ## Brainstorm Summary
 {key points from this session}
@@ -549,7 +537,8 @@ Project: $(pwd)
 
 ## Resume Context
 {what to know for next session}
-EOF
+HEREDOC_EOF
+} > .bmb/sessions/${SESSION_ID}/carry-forward.md.tmp
 mv .bmb/sessions/${SESSION_ID}/carry-forward.md.tmp .bmb/sessions/${SESSION_ID}/carry-forward.md
 
 # Send shutdown to logger

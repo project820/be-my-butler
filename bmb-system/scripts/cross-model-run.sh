@@ -11,13 +11,23 @@ set -euo pipefail
 
 # --- Parse arguments ---
 PROFILE="exec-assist"
+OUTPUT_FILE=""
+USE_STDIN=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --profile) PROFILE="$2"; shift 2 ;;
+    -o) OUTPUT_FILE="$2"; shift 2 ;;
+    -) USE_STDIN=true; shift ;;
     *) break ;;
   esac
 done
-PROMPT="${1:?Usage: cross-model-run.sh [--profile PROFILE] 'prompt here'}"
+
+# If stdin mode, read prompt from stdin; otherwise require positional arg
+if [ "$USE_STDIN" = true ]; then
+  PROMPT="$(cat)"
+else
+  PROMPT="${1:?Usage: cross-model-run.sh [--profile PROFILE] [-o OUTPUT_FILE] [-] 'prompt here'}"
+fi
 
 # --- Resolve config ---
 BMB_DIR="${BMB_DIR:-.bmb}"
@@ -25,13 +35,14 @@ CONFIG_FILE="${BMB_DIR}/config.json"
 
 # Read provider from config.json → env var → default "codex"
 if [ -f "$CONFIG_FILE" ] && command -v python3 &>/dev/null; then
-  PROVIDER=$(python3 -c "
-import json, sys
+  PROVIDER=$(_BMB_CFG="$CONFIG_FILE" python3 << 'PYEOF'
+import json, sys, os
 try:
-    c = json.load(open('$CONFIG_FILE'))
+    c = json.load(open(os.environ['_BMB_CFG']))
     print(c.get('cross_model',{}).get('provider','codex'))
 except: print('codex')
-" 2>/dev/null) || PROVIDER="codex"
+PYEOF
+  ) || PROVIDER="codex"
 else
   PROVIDER="${BMB_CROSS_MODEL_PROVIDER:-codex}"
 fi
@@ -39,27 +50,29 @@ fi
 # Read model override from config (empty = use CLI default i.e. LATEST)
 MODEL_OVERRIDE=""
 if [ -f "$CONFIG_FILE" ] && command -v python3 &>/dev/null; then
-  MODEL_OVERRIDE=$(python3 -c "
-import json
+  MODEL_OVERRIDE=$(_BMB_CFG="$CONFIG_FILE" _BMB_PROVIDER="$PROVIDER" python3 << 'PYEOF'
+import json, os
 try:
-    c = json.load(open('$CONFIG_FILE'))
+    c = json.load(open(os.environ['_BMB_CFG']))
     cm = c.get('cross_model',{})
-    key = '${PROVIDER}_model'
+    key = os.environ['_BMB_PROVIDER'] + '_model'
     v = cm.get(key, 'LATEST')
     print('' if v == 'LATEST' else v)
 except: print('')
-" 2>/dev/null) || MODEL_OVERRIDE=""
+PYEOF
+  ) || MODEL_OVERRIDE=""
 fi
 
 # Read timeout from config
 if [ -f "$CONFIG_FILE" ] && command -v python3 &>/dev/null; then
-  TIMEOUT=$(python3 -c "
-import json
+  TIMEOUT=$(_BMB_CFG="$CONFIG_FILE" python3 << 'PYEOF'
+import json, os
 try:
-    c = json.load(open('$CONFIG_FILE'))
+    c = json.load(open(os.environ['_BMB_CFG']))
     print(c.get('cross_model',{}).get('timeout_seconds', 3600))
 except: print(3600)
-" 2>/dev/null) || TIMEOUT=3600
+PYEOF
+  ) || TIMEOUT=3600
 else
   TIMEOUT=3600
 fi
@@ -101,7 +114,11 @@ case "$PROVIDER" in
     if [ -n "$MODEL_OVERRIDE" ]; then
       MODEL_ARGS="-m $MODEL_OVERRIDE"
     fi
-    exec codex exec $MODEL_ARGS --full-auto -C "$WORKDIR" "$FULL_PROMPT"
+    if [ -n "$OUTPUT_FILE" ]; then
+      codex exec $MODEL_ARGS --full-auto -C "$WORKDIR" "$FULL_PROMPT" > "$OUTPUT_FILE" 2>&1
+    else
+      exec codex exec $MODEL_ARGS --full-auto -C "$WORKDIR" "$FULL_PROMPT"
+    fi
     ;;
 
   gemini)
@@ -114,7 +131,11 @@ case "$PROVIDER" in
     if [ -n "$MODEL_OVERRIDE" ]; then
       MODEL_ARGS="-m $MODEL_OVERRIDE"
     fi
-    exec gemini run $MODEL_ARGS "$FULL_PROMPT"
+    if [ -n "$OUTPUT_FILE" ]; then
+      gemini run $MODEL_ARGS "$FULL_PROMPT" > "$OUTPUT_FILE" 2>&1
+    else
+      exec gemini run $MODEL_ARGS "$FULL_PROMPT"
+    fi
     ;;
 
   *)

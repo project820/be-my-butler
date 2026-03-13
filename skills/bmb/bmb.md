@@ -189,17 +189,23 @@ bmb_analytics_step_start "2" "brainstorm"
 
 1. Initialize consultant feed (hybrid — Finding 3 fix):
    ```bash
-   cat > .bmb/consultant-feed.md << EOF
+   # Use echo for safe shell vars, quoted heredoc for user-derived content
+   CF_DATE=$(date)
+   CF_TIME=$(date +%H:%M)
+   CF_STYLE=$(bmb_config_get "consultant.custom_style" || echo "default")
+   {
+     cat << 'HEREDOC_EOF'
    # Consultant Feed
-   Task: {user's task description}
-   Session: .bmb/sessions/${SESSION_ID}/
-   Log: .bmb/sessions/${SESSION_ID}/conversation-log.md
-   Started: $(date)
-   Style: $(bmb_config_get "consultant.custom_style" || echo "default")
-
-   ## Pipeline Events
-   ### Step 1 ($(date +%H:%M)): Pipeline started
-   EOF
+   HEREDOC_EOF
+     echo "   Task: {user's task description}"
+     echo "   Session: .bmb/sessions/${SESSION_ID}/"
+     echo "   Log: .bmb/sessions/${SESSION_ID}/conversation-log.md"
+     echo "   Started: ${CF_DATE}"
+     echo "   Style: ${CF_STYLE}"
+     echo ""
+     echo "   ## Pipeline Events"
+     echo "   ### Step 1 (${CF_TIME}): Pipeline started"
+   } > .bmb/consultant-feed.md
    ```
 
 2. Spawn Consultant pane (vertical split — Axis 1):
@@ -792,11 +798,15 @@ bmb_analytics_step_start "11" "cleanup"
 
 9b. **Generate carry-forward.md (atomic: temp+mv):**
     ```bash
-    cat > .bmb/sessions/${SESSION_ID}/carry-forward.md.tmp << EOF
-    # Carry Forward
-    Session: ${SESSION_ID}
-    Generated: $(date '+%Y-%m-%d %H:%M KST')
-    Project: $(pwd)
+    # Use echo for safe shell vars, quoted heredoc for user-derived content
+    CF_TIMESTAMP=$(date '+%Y-%m-%d %H:%M KST')
+    CF_PROJECT=$(pwd)
+    {
+      echo "    # Carry Forward"
+      echo "    Session: ${SESSION_ID}"
+      echo "    Generated: ${CF_TIMESTAMP}"
+      echo "    Project: ${CF_PROJECT}"
+      cat << 'HEREDOC_EOF'
 
     ## Completed
     {extract from session-log.md — steps that finished successfully}
@@ -815,7 +825,8 @@ bmb_analytics_step_start "11" "cleanup"
 
     ## Suggested Resume Prompt
     "{actionable prompt for next session}"
-    EOF
+    HEREDOC_EOF
+    } > .bmb/sessions/${SESSION_ID}/carry-forward.md.tmp
     mv .bmb/sessions/${SESSION_ID}/carry-forward.md.tmp .bmb/sessions/${SESSION_ID}/carry-forward.md
     ```
 

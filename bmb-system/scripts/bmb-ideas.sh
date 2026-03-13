@@ -98,9 +98,22 @@ PYEOF
   echo "$id"
 }
 
+bmb_idea_validate_id() {
+  # Reject IDs containing path traversal characters
+  local id="$1"
+  if [[ "$id" == *"/"* ]] || [[ "$id" == *".."* ]]; then
+    echo "ERROR: Invalid idea ID '$id' — must not contain '/' or '..'" >&2
+    return 1
+  fi
+  return 0
+}
+
 bmb_idea_transition() {
   # Usage: bmb_idea_transition "IDEA_ID" "NEW_STATUS" "REASON"
   local id="$1" new_status="$2" reason="$3"
+
+  bmb_idea_validate_id "$id" || return 1
+
   local idea_dir="$BMB_IDEAS_DIR/$id"
 
   [ ! -d "$idea_dir" ] && echo "ERROR: Idea $id not found" >&2 && return 1
@@ -148,6 +161,8 @@ PYEOF
 bmb_idea_set_project_path() {
   # Usage: bmb_idea_set_project_path "IDEA_ID" "/path/to/project"
   local id="$1" project_path="$2"
+
+  bmb_idea_validate_id "$id" || return 1
   # Finding 5 fix — env vars
   _BMB_ID="$id" _BMB_PATH="$project_path" _BMB_INDEX="$BMB_IDEAS_INDEX" \
   python3 << 'PYEOF'
