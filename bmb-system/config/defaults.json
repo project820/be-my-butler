@@ -1,0 +1,62 @@
+{
+  "version": 2,
+  "git": {
+    "auto_push": "ask",
+    "auto_commit": true
+  },
+  "cross_model": {
+    "provider": "codex",
+    "codex_model": "LATEST",
+    "gemini_model": "LATEST",
+    "timeout_seconds": 3600,
+    "codex_review_model": "gpt-5.4",
+    "codex_review_effort": "xhigh",
+    "_note": "LATEST = use provider CLI default (best available model). Override with specific model name if needed."
+  },
+  "timeouts": {
+    "claude_agent": 1200,
+    "cross_model": 3600,
+    "writer": 600,
+    "codex_review": 600,
+    "_note": "Seconds. claude_agent applies to executor/tester/verifier/simplifier. codex_review: adaptive 600-1800s based on plan size."
+  },
+  "consultant": {
+    "style": "default",
+    "custom_style": null
+  },
+  "notifications": {
+    "telegram": {
+      "enabled": false
+    }
+  },
+  "_profile_template": {
+    "_note": "Reference structure for ~/.claude/bmb-profile.json — not used at runtime",
+    "version": 1,
+    "setup_complete": true,
+    "user": {
+      "background": "",
+      "expertise_domains": [],
+      "coding_experience": "intermediate",
+      "work_style": "solo",
+      "explanation_style": "mixed",
+      "detail_level": "balanced",
+      "jargon_preference": "mix",
+      "code_examples": "moderate",
+      "term_language": "mixed",
+      "error_feedback": "direct",
+      "mbti": null,
+      "decision_style": "both",
+      "planning_style": "flexible",
+      "stress_comm": "supportive",
+      "feedback_pref": "balanced",
+      "language": "ko"
+    },
+    "consultant_persona": {
+      "name": null,
+      "mbti": null,
+      "tone": "friendly",
+      "depth": "intermediate"
+    },
+    "defaults": {}
+  }
+}

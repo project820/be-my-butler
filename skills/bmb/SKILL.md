@@ -11,3 +11,4 @@ Related skills (invoke separately):
 - `/BMB-setup` — configure project settings
 - `/BMB-brainstorm` — consulting session with Lead + Consultant
 - `/BMB-refactoring` — parallel refactoring with cross-model review
+- `/BMB-status` — project/idea dashboard and nudge system
