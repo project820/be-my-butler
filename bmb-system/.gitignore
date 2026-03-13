@@ -1,5 +1,7 @@
 # BMB runtime data (secrets, logs, sessions)
 .bmb/
+.omx/
+runtime/
 
 # Environment and secrets
 .env

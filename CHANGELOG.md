@@ -3,6 +3,43 @@
 All notable changes to BMB will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioned per [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-03-13
+
+### Added
+- **Human-centered brainstorming redesign** — 8-axis upgrade to the brainstorming pipeline
+  - Vertical pane split (Consultant at 35% right pane instead of bottom)
+  - Real-time hybrid sync protocol (feed + log) with clear channel hierarchy
+  - Idea lifecycle management: spark → validate → elaborate → project | archive
+  - First-time gate with frictionless project creation from brainstorm
+  - 30-question user profiling with consultant persona selection
+  - Session continuity: carry-forward with atomic writes (temp+mv)
+  - On-demand nudge system: `/BMB-status` dashboard with stale idea reminders
+  - Cross-model plan review: Codex reviews brainstorm plans before project creation
+- **Config infrastructure** (`bmb-config.sh`) — 3-layer merge: `defaults.json` → global profile → local config
+- **Idea lifecycle CRUD** (`bmb-ideas.sh`) — persistent idea storage across projects with status transitions
+- **`/BMB-status` skill** — project/idea dashboard with nudge system
+- **`/BMB-setup` first-time onboarding** — 30Q profiling, persona selection, settings scope
+- **Cross-model review profile** — `--profile review` with `-o OUTPUT_FILE` and `-` stdin flags
+
+### Changed
+- **Consultant agent** — added unified sync protocol, profile-based personalization, mid-session idea capture
+- **Brainstorm skill** — complete rewrite with phases: Setup, Spawn Consultant, Brainstorming (NEW_IDEA handler, context overflow), Idea Lifecycle Gateway, Cross-Model Plan Review, Project Creation, Cleanup
+- **Pipeline skill** (`bmb.md`) — vertical split layout, hybrid feed init, config loading, NEW_IDEA handler, enhanced carry-forward generation
+- **`defaults.json`** — version 2 with profile template, review model config (`gpt-5.4`, `xhigh` effort)
+- **`cross-model-run.sh`** — refactored all Python blocks to env var + heredoc pattern, consolidated config reads
+
+### Fixed
+- Path traversal vulnerability in idea lifecycle (`../../escape` blocked by `bmb_idea_validate_id()`)
+- Unquoted heredocs allowing shell injection → changed to `<< 'HEREDOC_EOF'`
+- Python shell interpolation in cross-model-run.sh → refactored to env var + heredoc
+- ShellCheck SC2155 in bmb-ideas.sh (declare and assign separately)
+- Markdown lint false positives from heredoc in code fences (MD012/MD025/MD046 disabled)
+- Unrelated files (gws-*, ui-ux-pro-max) removed from git tracking
+
+### Known Issues
+- Codex can hang during re-test/re-verify loops (54+ min observed) — no automatic detection yet (targeted for v0.3.4)
+- Cross-model timeout is flat 3600s for all profiles — per-profile timeouts planned for v0.3.4
+
 ## [0.2.0] - 2026-03-12
 
 ### Added
@@ -80,5 +117,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), version
 - `bmb-learn.sh`: missing `mkdir -p` for global learnings directory
 - Worktree cleanup does not delete branches after `git worktree remove`
 
+[0.3.0]: https://github.com/project820/be-my-butler/releases/tag/v0.3.0
 [0.2.0]: https://github.com/project820/be-my-butler/releases/tag/v0.2.0
 [0.1.0]: https://github.com/project820/be-my-butler/releases/tag/v0.1.0

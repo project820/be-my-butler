@@ -6,13 +6,13 @@
 
 **Multi-agent orchestration for Claude Code with cross-model blind verification**
 
-[![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-compatible-blueviolet.svg)](https://docs.anthropic.com/en/docs/claude-code)
 [![Agents](https://img.shields.io/badge/agents-9-orange.svg)](#the-9-agents)
 [![Steps](https://img.shields.io/badge/pipeline_steps-11.5-teal.svg)](#the-115-step-pipeline)
-[![What's New](https://img.shields.io/badge/what's_new-v0.2-green.svg)](WHATS-NEW-0.2.md)
+[![What's New](https://img.shields.io/badge/what's_new-v0.3-green.svg)](WHATS-NEW-0.3.md)
 
 <!-- TODO: Replace with asciinema recording -->
 <!-- [![asciicast](assets/demo.svg)](https://asciinema.org/a/TODO) -->
@@ -194,6 +194,7 @@ Architect, Executor, and Frontend agents query **live library documentation** vi
 | `/BMB-brainstorm` | Brainstorm + Council only — explore ideas without executing |
 | `/BMB-refactoring` | Refactor recipe shortcut — skip brainstorm, go straight to architecture |
 | `/BMB-setup` | First-time project setup — generates `session-prep.md` and config |
+| `/BMB-status` | Project/idea dashboard — stale idea nudges, lifecycle overview |
 
 ---
 
@@ -251,19 +252,29 @@ Mobile-optimized summary pages (7-card vertical scroll, 4 locales):
 ## Project Structure
 
 ```
-~/.claude/
-├── skills/bmb/          # 4 slash command skills
-├── agents/bmb-*.md      # 9 agent definitions (incl. bmb-analyst.md)
-└── bmb-system/
-    ├── config/          # Recipe configs, model assignments
-    ├── scripts/         # cross-model-run.sh, bmb-learn.sh, bmb-analytics.sh
-    └── templates/       # Session prep, handoff templates
+~/Projects/bmb/              # Source of truth (GitHub repo)
+├── skills/bmb*/             # 5 slash command skills
+├── agents/bmb-*.md          # 9 agent definitions
+├── bmb-system/
+│   ├── config/              # defaults.json (v2)
+│   ├── scripts/             # cross-model-run.sh, bmb-config.sh, bmb-ideas.sh, bmb-analytics.sh, ...
+│   └── plans/               # Version release plans
+└── commands/                # /distill, /mistake, /kion
 
-.bmb/                    # Per-project runtime directory
+~/.claude/                   # Runtime (symlinks to repo)
+├── skills/bmb* → repo       # Symlinked skills
+├── agents/ → repo            # Symlinked agents
+└── bmb-system/ → repo        # Symlinked runtime
+
+.bmb/                        # Per-project runtime directory
+├── config.json              # Project-local config (merged from 3 layers)
 ├── analytics/
-│   └── analytics.db     # SQLite: sessions, events, pattern_counts
-└── handoffs/
-    └── analyst-report.md  # Step 10.5 output
+│   └── analytics.db         # SQLite: sessions, events, pattern_counts
+├── handoffs/
+│   └── analyst-report.md    # Step 10.5 output
+└── sessions/{id}/
+    ├── carry-forward.md     # Atomic session continuity
+    └── plan-review.md       # Cross-model plan critique
 ```
 
 ---
