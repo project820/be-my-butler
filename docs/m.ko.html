@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BMB — Be My Butler | Mobile Summary</title>
+<meta name="description" content="BMB: 9-agent, 11.5-step orchestration for Claude Code. Cross-model blind verification + analytics pipeline.">
+<meta property="og:title" content="BMB — Be My Butler">
+<meta property="og:description" content="AI 코딩 자기검증 편향을 끝내다. 9 에이전트, 11.5단계, 크로스모델 블라인드 검증.">
+<meta property="og:type" content="website">
+<link rel="canonical" href="https://project820.github.io/be-my-butler/m.ko.html">
+<link rel="alternate" hreflang="en" href="https://project820.github.io/be-my-butler/m.html">
+<link rel="alternate" hreflang="ko" href="https://project820.github.io/be-my-butler/m.ko.html">
+<link rel="alternate" hreflang="ja" href="https://project820.github.io/be-my-butler/m.ja.html">
+<link rel="alternate" hreflang="zh-Hant" href="https://project820.github.io/be-my-butler/m.zh-TW.html">
+<link rel="alternate" hreflang="x-default" href="https://project820.github.io/be-my-butler/m.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="bmb-shared.css">
+</head>
+<body class="mobile-landing" data-page-family="mobile">
+
+<!-- Topbar -->
+<header class="ml-topbar">
+  <div class="ml-logo">BMB</div>
+  <div class="ml-nav-actions">
+    <span class="ml-counter"><span class="ml-counter-current">1</span> / 7</span>
+    <a href="https://github.com/project820/be-my-butler" target="_blank" rel="noopener noreferrer" class="ml-gh-link" aria-label="GitHub">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+    </a>
+  </div>
+</header>
+
+<main class="ml-track">
+
+  <!-- CARD 1: Cover -->
+  <section class="ml-card ml-cover" data-card="1">
+    <div class="ml-cover-badge">Open Source</div>
+    <div class="ml-cover-logo">BMB</div>
+    <div class="ml-cover-subtitle">Be My Butler</div>
+    <p class="ml-cover-headline">AI 코딩의 자기검증 편향을 끝내다</p>
+    <div class="ml-cover-tags">
+      <span class="ml-tag">9 Agents</span>
+      <span class="ml-tag-sep">&middot;</span>
+      <span class="ml-tag">11.5 Steps</span>
+      <span class="ml-tag-sep">&middot;</span>
+      <span class="ml-tag">Cross-Model</span>
+    </div>
+    <p class="ml-cover-desc">Claude Code를 위한 멀티에이전트 오케스트레이션<br>크로스모델 블라인드 검증 + Analytics 파이프라인</p>
+  </section>
+
+  <!-- CARD 2: Problem -->
+  <section class="ml-card ml-problem" data-card="2">
+    <div class="ml-card-header">
+      <span class="ml-card-num">01</span>
+      <span class="ml-card-label">The Problem</span>
+    </div>
+    <h2 class="ml-card-title">AI 코딩, 빠르지만<br><span class="ml-highlight-red">위험합니다</span></h2>
+    <div class="ml-problem-grid">
+      <div class="ml-problem-item">
+        <div class="ml-problem-icon">&#x1FA9E;</div>
+        <h3>자기검증 편향</h3>
+        <p>자기가 쓴 코드를 자기가 리뷰<br>&mdash; 맹점이 사라지지 않습니다</p>
+      </div>
+      <div class="ml-problem-item">
+        <div class="ml-problem-icon">&#x1F300;</div>
+        <h3>컨텍스트 폭발</h3>
+        <p>긴 대화에서 AI가 방향을 잃고<br>중요한 결정을 잊어버립니다</p>
+      </div>
+      <div class="ml-problem-item">
+        <div class="ml-problem-icon">&#x1F3AF;</div>
+        <h3>엣지케이스 누락</h3>
+        <p>빠른 속도에 눈이 멀어<br>경계값 테스트를 건너뜁니다</p>
+      </div>
+      <div class="ml-problem-item">
+        <div class="ml-problem-icon">&#x1F527;</div>
+        <h3>설계 터널 시야</h3>
+        <p>첫 번째 떠오른 아이디어에 고정<br>&mdash; 더 나은 대안을 탐색하지 않습니다</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CARD 3: Pipeline -->
+  <section class="ml-card ml-pipeline" data-card="3">
+    <div class="ml-card-header">
+      <span class="ml-card-num">02</span>
+      <span class="ml-card-label">The Pipeline</span>
+    </div>
+    <h2 class="ml-card-title">11.5단계 파이프라인<br>한 줄로 시작</h2>
+    <div class="ml-pipe-cmd">
+      <code>/BMB</code>
+      <span class="ml-pipe-cursor">&#x25CB;</span>
+    </div>
+    <div class="ml-pipe-flow">
+      <div class="ml-pipe-phase">
+        <div class="ml-phase-label">PLAN</div>
+        <div class="ml-phase-steps">
+          <div class="ml-step"><span class="ml-step-num">&#x2460;</span><span class="ml-step-name">Setup</span></div>
+          <div class="ml-step"><span class="ml-step-num">&#x2461;</span><span class="ml-step-name">Brainstorm</span></div>
+          <div class="ml-step"><span class="ml-step-num">&#x2462;</span><span class="ml-step-name">Council</span></div>
+        </div>
+      </div>
+      <div class="ml-flow-arrow">&rarr;</div>
+      <div class="ml-pipe-phase">
+        <div class="ml-phase-label">BUILD</div>
+        <div class="ml-phase-steps">
+          <div class="ml-step"><span class="ml-step-num">&#x2463;</span><span class="ml-step-name">Arch</span></div>
+          <div class="ml-step"><span class="ml-step-num">&#x2464;</span><span class="ml-step-name">Execute</span></div>
+          <div class="ml-step"><span class="ml-step-num">&#x2465;</span><span class="ml-step-name">Frontend</span></div>
+        </div>
+      </div>
+      <div class="ml-flow-arrow">&rarr;</div>
+      <div class="ml-pipe-phase">
+        <div class="ml-phase-label">VERIFY</div>
+        <div class="ml-phase-steps">
+          <div class="ml-step ml-step-hl"><span class="ml-step-num">&#x2466;</span><span class="ml-step-name">Test</span></div>
+          <div class="ml-step ml-step-hl"><span class="ml-step-num">&#x2467;</span><span class="ml-step-name">Verify</span></div>
+        </div>
+      </div>
+      <div class="ml-flow-arrow">&rarr;</div>
+      <div class="ml-pipe-phase">
+        <div class="ml-phase-label">REFINE</div>
+        <div class="ml-phase-steps">
+          <div class="ml-step"><span class="ml-step-num">&#x2468;</span><span class="ml-step-name">Simplify</span></div>
+          <div class="ml-step ml-step-hl"><span class="ml-step-num ml-step-half">&#x2469;&frac12;</span><span class="ml-step-name ml-step-half">Analyst</span></div>
+          <div class="ml-step"><span class="ml-step-num">&#x246A;</span><span class="ml-step-name">Learn</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="ml-pipe-note">Bird's Law 기반 Analytics &middot; 모든 단계가 자동으로 오케스트레이션 됩니다</p>
+  </section>
+
+  <!-- CARD 4: Architecture (Simplified SVG) -->
+  <section class="ml-card ml-arch" data-card="4">
+    <div class="ml-card-header">
+      <span class="ml-card-num">03</span>
+      <span class="ml-card-label">Architecture</span>
+    </div>
+    <h2 class="ml-card-title">에이전트 <span class="ml-highlight-gradient">오케스트레이션</span></h2>
+    <div class="ml-arch-diagram">
+      <svg viewBox="0 0 440 340" fill="none" xmlns="http://www.w3.org/2000/svg" class="ml-arch-svg" role="img" aria-label="BMB 에이전트 오케스트레이션 흐름도">
+        <!-- Lead (top) -->
+        <rect x="170" y="8" width="100" height="40" rx="10" fill="#111827" stroke="#3b82f6" stroke-width="1.5"/>
+        <text x="220" y="33" text-anchor="middle" fill="#60a5fa" font-family="'JetBrains Mono',monospace" font-size="13" font-weight="700">Lead</text>
+
+        <!-- Handoff arrows from Lead -->
+        <path d="M195 48 L100 84" stroke="#60a5fa" stroke-width="1.2" stroke-dasharray="4 3"/>
+        <circle r="3" fill="#60a5fa"><animateMotion dur="2s" repeatCount="indefinite" path="M195 48 L100 84"/></circle>
+        <path d="M220 48 L220 84" stroke="#60a5fa" stroke-width="1.2" stroke-dasharray="4 3"/>
+        <circle r="3" fill="#60a5fa"><animateMotion dur="2s" repeatCount="indefinite" path="M220 48 L220 84" begin="0.3s"/></circle>
+        <path d="M245 48 L340 84" stroke="#60a5fa" stroke-width="1.2" stroke-dasharray="4 3"/>
+        <circle r="3" fill="#60a5fa"><animateMotion dur="2s" repeatCount="indefinite" path="M245 48 L340 84" begin="0.6s"/></circle>
+
+        <!-- Row 2: Plan agents -->
+        <rect x="30" y="84" width="140" height="36" rx="8" fill="#111827" stroke="#1e3a5f" stroke-width="1"/>
+        <text x="100" y="106" text-anchor="middle" fill="#e8edf5" font-family="'IBM Plex Sans',sans-serif" font-size="12" font-weight="600">Consultant</text>
+
+        <rect x="185" y="84" width="70" height="36" rx="8" fill="#111827" stroke="#1e3a5f" stroke-width="1"/>
+        <text x="220" y="106" text-anchor="middle" fill="#e8edf5" font-family="'IBM Plex Sans',sans-serif" font-size="12" font-weight="600">Arch</text>
+
+        <rect x="270" y="84" width="140" height="36" rx="8" fill="#111827" stroke="#1e3a5f" stroke-width="1"/>
+        <text x="340" y="106" text-anchor="middle" fill="#e8edf5" font-family="'IBM Plex Sans',sans-serif" font-size="12" font-weight="600">Executor</text>
+
+        <!-- Worktree isolation bracket -->
+        <rect x="30" y="130" width="380" height="24" rx="4" fill="rgba(59,130,246,0.04)" stroke="rgba(59,130,246,0.2)" stroke-width="1" stroke-dasharray="3 2"/>
+        <text x="220" y="146" text-anchor="middle" fill="#60a5fa" font-family="'JetBrains Mono',monospace" font-size="9" font-weight="700" letter-spacing="1">WORKTREE ISOLATION &middot; FILE-BASED HANDOFFS</text>
+
+        <!-- Flow down arrows -->
+        <path d="M100 154 L100 174" stroke="#3b82f6" stroke-width="1.2" marker-end="url(#mlArrowBlue)"/>
+        <path d="M340 120 L340 174" stroke="#3b82f6" stroke-width="1.2" marker-end="url(#mlArrowBlue)"/>
+
+        <!-- Build row -->
+        <rect x="30" y="174" width="140" height="36" rx="8" fill="#111827" stroke="#1e3a5f" stroke-width="1"/>
+        <text x="100" y="196" text-anchor="middle" fill="#e8edf5" font-family="'IBM Plex Sans',sans-serif" font-size="12" font-weight="600">Frontend</text>
+
+        <rect x="270" y="174" width="140" height="36" rx="8" fill="#111827" stroke="#1e3a5f" stroke-width="1"/>
+        <text x="340" y="196" text-anchor="middle" fill="#e8edf5" font-family="'IBM Plex Sans',sans-serif" font-size="12" font-weight="600">Tester</text>
+
+        <!-- Merge arrows to Verify -->
+        <path d="M100 210 L195 240" stroke="#f472b6" stroke-width="1.2" marker-end="url(#mlArrowPink)"/>
+        <path d="M340 210 L245 240" stroke="#f472b6" stroke-width="1.2" marker-end="url(#mlArrowPink)"/>
+
+        <!-- BLIND separation wall -->
+        <line x1="160" y1="236" x2="280" y2="236" stroke="#f59e0b" stroke-width="2" stroke-dasharray="6 4" opacity="0.6"/>
+        <text x="220" y="234" text-anchor="middle" fill="#f59e0b" font-family="'JetBrains Mono',monospace" font-size="8" font-weight="700" letter-spacing="2">BLIND WALL</text>
+
+        <!-- Cross-Model Verify -->
+        <rect x="140" y="242" width="160" height="36" rx="8" fill="#111827" stroke="#f472b6" stroke-width="1.5"/>
+        <text x="220" y="264" text-anchor="middle" fill="#f472b6" font-family="'IBM Plex Sans',sans-serif" font-size="12" font-weight="700">Cross-Model Verify</text>
+
+        <!-- Analyst -->
+        <path d="M220 278 L220 294" stroke="#f59e0b" stroke-width="1.2" marker-end="url(#mlArrowAmber)"/>
+        <rect x="130" y="294" width="180" height="30" rx="8" fill="rgba(245,158,11,0.08)" stroke="rgba(245,158,11,0.4)" stroke-width="1.5"/>
+        <text x="220" y="314" text-anchor="middle" fill="#f59e0b" font-family="'JetBrains Mono',monospace" font-size="11" font-weight="700">Analyst &middot; Bird's Law</text>
+
+        <!-- Arrow markers -->
+        <defs>
+          <marker id="mlArrowBlue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0 0 L8 3 L0 6" fill="#3b82f6"/></marker>
+          <marker id="mlArrowPink" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0 0 L8 3 L0 6" fill="#f472b6"/></marker>
+          <marker id="mlArrowAmber" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0 0 L8 3 L0 6" fill="#f59e0b"/></marker>
+        </defs>
+      </svg>
+    </div>
+    <p class="ml-arch-caption">9 에이전트 &middot; Lead가 tmux pane에서 순차 호출 &middot; Analyst가 매 세션 회고 분석</p>
+  </section>
+
+  <!-- CARD 5: Killer Feature -->
+  <section class="ml-card ml-killer" data-card="5">
+    <div class="ml-card-header">
+      <span class="ml-card-num">04</span>
+      <span class="ml-card-label ml-killer">Killer Feature</span>
+    </div>
+    <h2 class="ml-card-title">크로스모델<br><span class="ml-highlight-gradient">블라인드 검증</span></h2>
+    <div class="ml-killer-diagram">
+      <div class="ml-model-box ml-model-a">
+        <div class="ml-model-icon">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        </div>
+        <div class="ml-model-name">Claude</div>
+        <div class="ml-model-task">코드 작성 + 테스트</div>
+      </div>
+      <div class="ml-blind-wall">
+        <div class="ml-wall-line"></div>
+        <span class="ml-wall-text">BLIND</span>
+        <div class="ml-wall-line"></div>
+      </div>
+      <div class="ml-model-box ml-model-b">
+        <div class="ml-model-icon">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        </div>
+        <div class="ml-model-name">Codex / Gemini</div>
+        <div class="ml-model-task">독립 검증 + 리뷰</div>
+      </div>
+    </div>
+    <div class="ml-killer-explain">
+      <div class="ml-explain-item">
+        <span class="ml-explain-icon">&#x1F500;</span>
+        <div>
+          <strong>Divergent Framing</strong>
+          <p>검증자에게 의도적으로 재구성된 스펙을 전달.<br>같은 코드, 다른 시각으로 검증.</p>
+        </div>
+      </div>
+      <div class="ml-explain-item">
+        <span class="ml-explain-icon">&#x1F6E1;&#xFE0F;</span>
+        <div>
+          <strong>Assumption Leak 탐지</strong>
+          <p>원래 모델의 가정이 아닌, 코드 자체의<br>올바름을 독립적으로 판단합니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CARD 6: For Everyone -->
+  <section class="ml-card ml-dual" data-card="6">
+    <div class="ml-card-header">
+      <span class="ml-card-num">05</span>
+      <span class="ml-card-label">For Everyone</span>
+    </div>
+    <h2 class="ml-card-title">하나의 커맨드,<br><span class="ml-highlight-gradient">두 가지 날개</span></h2>
+    <div class="ml-dual-split">
+      <div class="ml-dual-panel ml-panel-expert">
+        <div class="ml-panel-icon">&#x1F3D7;&#xFE0F;</div>
+        <h3>전문가에게</h3>
+        <ul>
+          <li>크로스모델 블라인드 검증</li>
+          <li>Council Debate 설계 최적화</li>
+          <li>3-Tier 자동 학습 시스템</li>
+          <li>프로덕션 수준 코드 품질</li>
+        </ul>
+        <div class="ml-panel-tag">더 높은 코드 품질</div>
+      </div>
+      <div class="ml-dual-divider">
+        <div class="ml-divider-line"></div>
+        <span class="ml-divider-cmd">/BMB</span>
+        <div class="ml-divider-line"></div>
+      </div>
+      <div class="ml-dual-panel ml-panel-beginner">
+        <div class="ml-panel-icon">&#x1F680;</div>
+        <h3>입문자에게</h3>
+        <ul>
+          <li>코딩 용어 몰라도 OK</li>
+          <li>아이디어만 말하면 시작</li>
+          <li>주부, 학생, 비개발자 환영</li>
+          <li>중간에 궁금하면 언제든 질문</li>
+        </ul>
+        <div class="ml-panel-tag">두려움 없는 시작</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CARD 7: CTA -->
+  <section class="ml-card ml-cta" data-card="7">
+    <div class="ml-cta-logo">BMB</div>
+    <h2 class="ml-cta-headline">다른 AI 코딩 도구는<br>속도를 최적화합니다.<br><span class="ml-highlight-gradient">BMB는 정확성을 최적화합니다.</span></h2>
+    <div class="ml-cta-stats">
+      <div class="ml-stat"><span class="ml-stat-value">9</span><span class="ml-stat-label">전문 에이전트</span></div>
+      <div class="ml-stat"><span class="ml-stat-value">11.5</span><span class="ml-stat-label">파이프라인 단계</span></div>
+      <div class="ml-stat"><span class="ml-stat-value">&infin;</span><span class="ml-stat-label">학습 사이클</span></div>
+    </div>
+    <a href="https://github.com/project820/be-my-butler" target="_blank" rel="noopener noreferrer" class="ml-cta-button">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+      GitHub에서 시작하기
+    </a>
+    <p class="ml-cta-license">MIT License &mdash; 원하는 대로 쓰세요.</p>
+  </section>
+
+</main>
+
+<!-- Language Bar -->
+<nav class="ml-lang-bar" aria-label="Language">
+  <a href="m.html">EN</a>
+  <a href="m.ko.html" class="active">KO</a>
+  <a href="m.ja.html">JA</a>
+  <a href="m.zh-TW.html">ZH-TW</a>
+</nav>
+
+<footer class="ml-footer">
+  <a href="index.ko.html">전체 문서 보기 &rarr;</a>
+</footer>
+
+<script src="bmb-shared.js"></script>
+</body>
+</html>

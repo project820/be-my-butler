@@ -1,0 +1,51 @@
+name: Install Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-install:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tmux sqlite3 python3
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install tmux sqlite3 python3
+
+      - name: Stub claude CLI for CI
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          printf '#!/bin/sh\necho "claude-code v0.0.0-ci-stub"\n' > "$HOME/.local/bin/claude"
+          chmod +x "$HOME/.local/bin/claude"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Run install.sh
+        run: |
+          chmod +x install.sh
+          ./install.sh
+
+      - name: Run doctor.sh
+        run: |
+          chmod +x doctor.sh
+          ./doctor.sh || true
+
+      - name: Run uninstall.sh
+        run: |
+          chmod +x uninstall.sh
+          ./uninstall.sh --yes

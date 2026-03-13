@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Track agents, commands, skills, and bmb-system scripts
 *
 !.gitignore
@@ -10,3 +11,32 @@
 !bmb-system/
 !bmb-system/scripts/
 !bmb-system/scripts/*.sh
+=======
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+
+# Node (demo project)
+node_modules/
+npm-debug.log*
+
+# BMB runtime (never commit)
+.bmb/
+TODO.md
+
+# Environment
+.env
+.env.*
+!.env.example
+>>>>>>> origin/main

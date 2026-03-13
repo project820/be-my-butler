@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BMB — Be My Butler | Claude Code マルチエージェントオーケストレーション</title>
+<meta name="description" content="Claude Code向け11.5ステップ・9エージェント・オーケストレーションパイプライン。クロスモデル・ブラインド検証、Council討論、分析、Worktree分離を搭載。">
+<meta property="og:title" content="BMB — Be My Butler">
+<meta property="og:description" content="9エージェント・11.5ステップのClaude Code向けオーケストレーション。クロスモデル・ブラインド検証と分析機能搭載">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://raw.githubusercontent.com/project820/be-my-butler/main/assets/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="BMB — Be My Butler">
+<meta name="twitter:description" content="9エージェント・11.5ステップのClaude Code向けオーケストレーション。クロスモデル・ブラインド検証と分析機能搭載">
+<link rel="alternate" hreflang="en" href="https://project820.github.io/be-my-butler/">
+<link rel="alternate" hreflang="ko" href="https://project820.github.io/be-my-butler/index.ko.html">
+<link rel="alternate" hreflang="ja" href="https://project820.github.io/be-my-butler/index.ja.html">
+<link rel="alternate" hreflang="zh-Hant" href="https://project820.github.io/be-my-butler/index.zh-TW.html">
+<link rel="alternate" hreflang="x-default" href="https://project820.github.io/be-my-butler/">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="bmb-shared.css">
+</head>
+<body>
+
+<!-- ─── Desktop Controls ──────────────────── -->
+<div class="lang-switcher">
+  <button class="lang-btn">&#127760; JA</button>
+  <div class="lang-dropdown">
+    <a href="index.html">English</a>
+    <a href="index.ko.html">한국어</a>
+    <a href="index.ja.html" class="active">日本語</a>
+    <a href="index.zh-TW.html">繁體中文</a>
+  </div>
+</div>
+<button class="slide-toggle" onclick="toggleSlideMode()">スライドモード</button>
+<div class="slide-indicator"></div>
+<div class="slide-hint">← → or J/K &middot; ESC で終了</div>
+<div class="slide-dots"></div>
+
+<!-- ─── Mobile Hamburger + Drawer ─────────── -->
+<button class="hamburger" aria-label="メニュー">
+  <span></span><span></span><span></span>
+</button>
+<div class="drawer-overlay"></div>
+<div class="drawer">
+  <nav class="drawer-nav">
+    <a href="#principles">設計原則</a>
+    <a href="#agents">エージェント</a>
+    <a href="#pipeline">パイプライン</a>
+    <a href="#dataflow">データフロー</a>
+    <a href="#blind">ブラインドプロトコル</a>
+    <a href="#worktrees">Worktree</a>
+    <a href="#crossmodel">クロスモデル</a>
+    <a href="#compression">圧縮</a>
+    <a href="#learning">自動学習</a>
+    <a href="#recipes">レシピ</a>
+    <a href="#skills">スキル</a>
+    <a href="#degradation">デグラデーション</a>
+    <a href="#directory">ディレクトリ</a>
+    <hr style="border:0;border-top:1px solid var(--border);margin:8px 0;">
+    <a href="m.ja.html">📱 モバイル概要</a>
+  </nav>
+  <div class="drawer-lang">
+    <div class="drawer-lang-title">言語</div>
+    <a href="index.html">English</a>
+    <a href="index.ko.html">한국어</a>
+    <a href="index.ja.html" class="active">日本語</a>
+    <a href="index.zh-TW.html">繁體中文</a>
+  </div>
+</div>
+
+<!-- ═══════════════════ HERO ═══════════════════ -->
+<header class="hero">
+  <div class="hero-content">
+    <div class="hero-badge">
+      <span class="pulse"></span>
+      マルチエージェント・オーケストレーションシステム
+    </div>
+    <div style="display:inline-flex;align-items:center;gap:8px;margin-bottom:16px;">
+      <span style="display:inline-block;padding:4px 14px;border-radius:20px;background:var(--gradient-blue);color:#fff;font-family:'JetBrains Mono',monospace;font-size:0.8rem;font-weight:600;">v0.2.0</span>
+      <a href="https://github.com/project820/be-my-butler/blob/main/WHATS-NEW-0.2.md" style="display:inline-flex;align-items:center;gap:4px;padding:4px 14px;border-radius:20px;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);color:var(--green);font-size:0.8rem;font-weight:600;text-decoration:none;transition:all 0.2s;" onmouseover="this.style.background='rgba(34,197,94,0.2)'" onmouseout="this.style.background='rgba(34,197,94,0.12)'">v0.2 の新機能</a>
+    </div>
+    <h1>
+      <span class="gradient-text">BMB</span><br>
+      Be-my-butler
+    </h1>
+    <p class="subtitle">
+      Worktree分離によるクロスモデル・エージェントオーケストレーション<br>
+      ブラインド分岐検証と自動学習を搭載
+    </p>
+    <div style="display:flex;gap:12px;justify-content:center;margin-bottom:32px;flex-wrap:wrap;">
+      <a href="https://github.com/project820/be-my-butler" style="display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:10px;background:var(--gradient-blue);color:#fff;text-decoration:none;font-weight:600;font-size:0.95rem;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">GitHub リポジトリ</a>
+      <a href="https://github.com/project820/be-my-butler#quickstart" style="display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:10px;background:transparent;color:var(--accent-light);text-decoration:none;font-weight:600;font-size:0.95rem;border:1px solid var(--border);transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform=''">クイックスタート</a>
+    </div>
+    <div class="hero-lang-bar" style="display:flex;gap:8px;justify-content:center;margin-bottom:32px;flex-wrap:wrap;">
+      <span style="color:var(--text-dim);font-size:0.82rem;align-self:center;margin-right:4px;">&#127760;</span>
+      <a href="index.html" style="padding:5px 14px;border-radius:16px;font-size:0.8rem;font-weight:600;text-decoration:none;color:var(--text-muted);background:transparent;border:1px solid var(--border);transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent-light)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">English</a>
+      <a href="index.ko.html" style="padding:5px 14px;border-radius:16px;font-size:0.8rem;font-weight:600;text-decoration:none;color:var(--text-muted);background:transparent;border:1px solid var(--border);transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent-light)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">한국어</a>
+      <a href="index.ja.html" style="padding:5px 14px;border-radius:16px;font-size:0.8rem;font-weight:600;text-decoration:none;color:#fff;background:var(--accent);border:1px solid var(--accent);">日本語</a>
+      <a href="index.zh-TW.html" style="padding:5px 14px;border-radius:16px;font-size:0.8rem;font-weight:600;text-decoration:none;color:var(--text-muted);background:transparent;border:1px solid var(--border);transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent-light)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">繁體中文</a>
+    </div>
+    <div style="margin-bottom:36px;">
+      <code style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;padding:10px 24px;border-radius:8px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.15);color:var(--accent-light);">curl -fsSL https://raw.githubusercontent.com/project820/be-my-butler/main/install.sh | bash</code>
+    </div>
+    <div class="hero-stats">
+      <div class="stat">
+        <div class="stat-value">11.5</div>
+        <div class="stat-label">パイプラインステップ</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">9</div>
+        <div class="stat-label">エージェント</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">3</div>
+        <div class="stat-label">圧縮レイヤー</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">4</div>
+        <div class="stat-label">スキル</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">6</div>
+        <div class="stat-label">レシピ</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════ NAV ════════════════════ -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="#principles">設計原則</a>
+    <a href="#agents">エージェント</a>
+    <a href="#pipeline">パイプライン</a>
+    <a href="#dataflow">データフロー</a>
+    <a href="#blind">ブラインドプロトコル</a>
+    <a href="#worktrees">Worktree</a>
+    <a href="#crossmodel">クロスモデル</a>
+    <a href="#compression">圧縮</a>
+    <a href="#learning">自動学習</a>
+    <a href="#recipes">レシピ</a>
+    <a href="#skills">スキル</a>
+    <a href="#degradation">デグラデーション</a>
+    <a href="#directory">ディレクトリ</a>
+  </div>
+</nav>
+
+<!-- ═══════════════════ PRINCIPLES ═══════════════════ -->
+<section id="principles">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">01 &mdash; 基盤</div>
+      <h2>コア設計原則</h2>
+      <p class="section-desc">すべてのアーキテクチャ上の決定は、これらの譲れない原則に基づいています。</p>
+    </div>
+    <div class="card-grid card-grid-3 fade-in">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon lead">W</div>
+          <div><div class="card-title">Worktree分離</div></div>
+        </div>
+        <div class="card-desc">書き込み可能なすべての並列エージェントが独自の<code>git worktree</code>を取得。共有状態なし。index.lockの競合なし。真のファイルシステムレベルの分離。</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon cross">B</div>
+          <div><div class="card-title">ブラインド分岐フレーミング</div></div>
+        </div>
+        <div class="card-desc">クロスモデルトラックは<em>異なる</em>コンテキストドキュメントを読み取ります。結果に対してブラインドなだけでなく、問題のフレーミング自体が分岐しています。</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">L</div>
+          <div><div class="card-title">Leadは薄いオーケストレーター</div></div>
+        </div>
+        <div class="card-desc">Leadは<code>.bmb/</code>と<code>CLAUDE.md</code>のみを読み取ります。コードには一切触れません。コンテキスト保護が最優先 &mdash; Leadがボトルネックです。</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon sonnet">C</div>
+          <div><div class="card-title">双方向Consultant</div></div>
+        </div>
+        <div class="card-desc">SendMessageによりConsultant &rarr; Leadのフィードバックが可能。ユーザーとの会話から得たビジネスルールが実際にパイプラインに反映されます。</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon new">A</div>
+          <div><div class="card-title">自動学習</div></div>
+        </div>
+        <div class="card-desc">ミス、修正、成功が自動的に記録されます。過去の失敗が将来のセッションに注入されます。3段階: ローカル &rarr; グローバル &rarr; CLAUDE.md。</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon lead">S</div>
+          <div><div class="card-title">セッション継続性</div></div>
+        </div>
+        <div class="card-desc"><code>session-prep.md</code>が次のセッションの状態を保存。セッション間のコンテキストが保持されます。作業が本当に失われることはありません。</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">3</div>
+          <div><div class="card-title">3層圧縮</div></div>
+        </div>
+        <div class="card-desc">読み取り時のサマリー、書き込み時のキャッシュ、参照時のFTS5。パイプライン全体を通じてLeadのコンテキストを50%以下に維持。</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon cross">P</div>
+          <div><div class="card-title">プロファイルベースの権限</div></div>
+        </div>
+        <div class="card-desc">クロスモデル呼び出しはロール固有のプロファイルを使用: <code>council</code>と<code>verify</code>は読み取り専用。<code>--full-auto</code>の乱用はもうありません。</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon sonnet">G</div>
+          <div><div class="card-title">グレースフルデグラデーション</div></div>
+        </div>
+        <div class="card-desc">クロスモデルが利用不可？パイプラインはClaude単体で続行。Simplifierがテストを壊した？リバートして続行。決してブロックしません。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ AGENTS ═══════════════════ -->
+<section id="agents">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">02 &mdash; チーム</div>
+      <h2>エージェント一覧</h2>
+      <p class="section-desc">9つの専門エージェント、それぞれ明確な役割と厳格な境界を持ちます。ブレインストーミングからプロダクションレディなコードまで。</p>
+    </div>
+
+    <!-- Mermaid #1: System Architecture -->
+    <div class="mermaid-wrap fade-in">
+      <pre class="mermaid">
+graph TB
+  User["👤 User"]
+  Lead["🎯 Lead<br/><i>Opus · Orchestrator</i>"]
+  Consultant["💬 Consultant<br/><i>Sonnet · Persistent</i>"]
+  Architect["📐 Architect<br/><i>Opus · Council</i>"]
+  Executor["⚙️ Executor<br/><i>Opus · Backend</i>"]
+  Frontend["🎨 Frontend<br/><i>Opus · UI</i>"]
+  Tester["🧪 Tester<br/><i>Opus · Blind</i>"]
+  Verifier["✅ Verifier<br/><i>Opus · Blind</i>"]
+  Simplifier["🧹 Simplifier<br/><i>Opus · Cleanup</i>"]
+  Writer["📝 Writer<br/><i>Sonnet · Docs</i>"]
+  BMB[".bmb/<br/><i>Handoffs · Artifacts</i>"]
+  CrossModel["🌐 Cross-Model<br/><i>Codex / Gemini</i>"]
+
+  User <-->|"brainstorm<br/>approve"| Lead
+  Lead <-->|"SendMessage<br/>bidirectional"| Consultant
+  Lead -->|"briefing"| Architect
+  Architect <-->|"council<br/>debate"| CrossModel
+  Lead -->|"plan-to-exec"| Executor
+  Lead -->|"plan-to-exec"| Frontend
+  Lead -->|"test request"| Tester
+  Tester -.->|"blind wall"| CrossModel
+  Lead -->|"verify request"| Verifier
+  Verifier -.->|"blind wall"| CrossModel
+  Lead -->|"simplify"| Simplifier
+  Lead -->|"write docs"| Writer
+  Architect -->|"writes"| BMB
+  Executor -->|"writes"| BMB
+  Frontend -->|"writes"| BMB
+  Tester -->|"writes"| BMB
+  Verifier -->|"writes"| BMB
+  Lead -->|"reads only"| BMB
+
+  classDef opus fill:#1a1030,stroke:#7c3aed,stroke-width:2px,color:#a78bfa
+  classDef sonnet fill:#0a2015,stroke:#16a34a,stroke-width:2px,color:#22c55e
+  classDef cross fill:#1a1500,stroke:#d97706,stroke-width:2px,color:#f59e0b
+  classDef user fill:#0a1628,stroke:#3b82f6,stroke-width:2px,color:#60a5fa
+  classDef storage fill:#111827,stroke:#1e3a5f,stroke-width:2px,color:#8494a7
+
+  class Lead,Architect,Executor,Frontend,Tester,Verifier,Simplifier opus
+  class Consultant,Writer sonnet
+  class CrossModel cross
+  class User user
+  class BMB storage
+      </pre>
+    </div>
+
+    <div class="card-grid fade-in">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon lead">L</div>
+          <div><div class="card-title">Lead</div><div class="card-model">Claude Opus &bull; フルパイプライン</div></div>
+        </div>
+        <div class="card-desc">オーケストレーション、意思決定、中継、ブレインストーミング。<code>.bmb/</code>のみ読み取り。コードは一切書かない。薄い指揮者。</div>
+        <div class="card-tags"><span class="tag">オーケストレーター</span><span class="tag cyan">プロセス内ブレスト</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon sonnet">C</div>
+          <div><div class="card-title">Consultant</div><div class="card-model">Claude Sonnet &bull; ステップ2&ndash;11</div></div>
+        </div>
+        <div class="card-desc">コーディネーターとしての役割: 完全な状況認識、ゼロの命令権限。デュアルチャネル（フィードファイル + SendMessage）。ブラインドフェーズ中にライフサイクルイベントを受信、照合後にフルポストブリーフィングを取得。</div>
+        <div class="card-tags"><span class="tag green">デュアルチャネル</span><span class="tag">永続</span><span class="tag cyan">ポストブリーフィング</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">A</div>
+          <div><div class="card-title">Architect</div><div class="card-model">Claude Opus &bull; ステップ4</div></div>
+        </div>
+        <div class="card-desc">設計 + クロスモデルCouncil討論。Claude vs Codex/Geminiの2〜4ラウンド。plan-to-exec.mdを作成。設計前にContext7でライブライブラリドキュメントを参照。</div>
+        <div class="card-tags"><span class="tag purple">Council討論</span><span class="tag amber">クロスモデル</span><span class="tag cyan">Context7</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">E</div>
+          <div><div class="card-title">Executor</div><div class="card-model">Claude Opus &bull; ステップ5</div></div>
+        </div>
+        <div class="card-desc">バックエンド実装。分離されたgit worktreeで作業。コード記述前にContext7で最新ライブラリドキュメントを参照。worktreeスコープ内のみでコミット。</div>
+        <div class="card-tags"><span class="tag">Worktree分離</span><span class="tag cyan">Context7</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">F</div>
+          <div><div class="card-title">Frontend</div><div class="card-model">Claude Opus &bull; ステップ5</div></div>
+        </div>
+        <div class="card-desc">React/Next.js + shadcn/Tailwindスペシャリスト。Executorとは別のworktree。Context7で最新フレームワークドキュメントを参照。フロントエンドスコープが検出された場合のみ生成。</div>
+        <div class="card-tags"><span class="tag">Worktree分離</span><span class="tag">条件付き</span><span class="tag cyan">Context7</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">T</div>
+          <div><div class="card-title">Tester</div><div class="card-model">Claude Opus &bull; ステップ6</div></div>
+        </div>
+        <div class="card-desc">ユニットテスト、統合テスト、エッジケーステスト。分岐フレーミングによるブラインド・クロスモデルテストの一部。</div>
+        <div class="card-tags"><span class="tag purple">ブラインド</span><span class="tag">Worktree分離</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">V</div>
+          <div><div class="card-title">Verifier</div><div class="card-model">Claude Opus &bull; ステップ7</div></div>
+        </div>
+        <div class="card-desc">エビデンスベースの検証 + コードレビューを1エージェントで。ブラインド・クロスモデル検証。</div>
+        <div class="card-tags"><span class="tag purple">ブラインド</span><span class="tag cyan">レビュー + 検証</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">S</div>
+          <div><div class="card-title">Simplifier</div><div class="card-model">Claude Opus &bull; ステップ9</div></div>
+        </div>
+        <div class="card-desc">作業後のコードクリーンアップ。変更後にビルド＋テストで再検証が必須。失敗時は自動リバート。</div>
+        <div class="card-tags"><span class="tag green">再検証</span></div>
+      </div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:16px;flex-wrap:wrap">
+      <div class="card" style="max-width:400px">
+        <div class="card-header">
+          <div class="card-icon sonnet">W</div>
+          <div><div class="card-title">Writer</div><div class="card-model">Claude Sonnet &bull; ステップ10</div></div>
+        </div>
+        <div class="card-desc">ドキュメント更新 + クロスバリデーション。ドキュメントにはSonnetで十分。</div>
+      </div>
+      <div class="card" style="max-width:400px">
+        <div class="card-header">
+          <div class="card-icon" style="background:linear-gradient(135deg,#22c55e,#16a34a)">A</div>
+          <div><div class="card-title">Analyst</div><div class="card-model">Claude Sonnet &bull; ステップ10.5</div></div>
+        </div>
+        <div class="card-desc">振り返り分析: <code>analytics.db</code>をクエリし、Bird&rsquo;s Law重大度（critical/warn/info）でイベントを分類、<code>pattern_counts</code>のプロモーション候補を特定。</div>
+        <div class="card-tags"><span class="tag green">bypassPermissions</span><span class="tag">読み取り専用</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ PIPELINE ═══════════════════ -->
+<section id="pipeline">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">03 &mdash; フロー</div>
+      <h2>11.5ステップ・パイプライン</h2>
+      <p class="section-desc">ユーザーの意図からプロダクションレディなコードまで。各ステップをクリックして詳細を確認。</p>
+    </div>
+    <div class="accordion fade-in">
+      <!-- Step 1 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">1</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">セットアップ</div>
+              <div class="step-agents">
+                <span class="agent-pill lead-pill">Lead</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            tmuxガード、セッションID、ディレクトリ構造、<strong>source bmb-learn.sh</strong>、過去のMISTAKEエントリ（ローカル + グローバル）の読み込み、設定、session-prepチェック、会話ロガー開始。
+            <div class="step-badges"><span class="tag cyan">自動学習</span><span class="tag">セッション継続性</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 2 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">2</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">ブレインストーム + Consultant</div>
+              <div class="step-agents">
+                <span class="agent-pill lead-pill">Lead</span>
+                <span class="agent-pill sonnet">Consultant</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            Leadがユーザーと直接ブレインストーミング（別のブレインストーマーエージェントなし）。双方向SendMessageで永続Consultantペインを生成。最低2ラウンド。<strong>既知の落とし穴</strong>セクション付きブリーフィングを作成。
+            <div class="step-badges"><span class="tag green">プロセス内</span><span class="tag">双方向</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 3 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">3</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">ユーザー承認</div>
+              <div class="step-agents">
+                <span class="agent-pill lead-pill">Lead</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            圧縮ブリーフィングを提示。<strong>YES</strong> &rarr; <code>bmb_learn PRAISE</code>。<strong>MODIFY</strong> &rarr; <code>bmb_learn CORRECTION</code> + 更新。<strong>NO</strong> &rarr; キャンセル。
+            <div class="step-badges"><span class="tag cyan">自動学習</span><span class="tag amber">3分岐</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 4 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">4</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">アーキテクチャCouncil</div>
+              <div class="step-agents">
+                <span class="agent-pill opus">Architect</span>
+                <span class="agent-pill cross-pill">Cross-Model</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            実行用git worktreeを作成。Claude-Codex/GeminiのCouncil討論（2〜4ラウンド）のためArchitectを生成。plan-to-exec.mdを作成。<em>bugfix/infraレシピではスキップ。</em>
+            <div class="step-badges"><span class="tag purple">Council討論</span><span class="tag amber">クロスモデル</span><span class="tag">スキップ: bugfix, infra</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 5 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">5</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">実行</div>
+              <div class="step-agents">
+                <span class="agent-pill opus">Executor</span>
+                <span class="agent-pill opus">Frontend</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            Executor + Frontend（条件付き）を<strong>別々のworktree</strong>で生成。git競合ゼロの並列実行。Frontendはスコープが検出された場合のみ（React、Vue、Svelteなど）。
+            <div class="step-badges"><span class="tag">Worktree分離</span><span class="tag">並列</span><span class="tag">条件付きフロントエンド</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 5.5 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">5.5</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">Worktreeマージ</div>
+              <div class="step-agents">
+                <span class="agent-pill lead-pill">Lead</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            worktreeでコミット &rarr; mainにマージ &rarr; worktree削除。コンフリクト発生時は<code>bmb_learn MISTAKE</code> + ユーザーにエスカレーション。
+            <div class="step-badges"><span class="tag cyan">自動学習</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 6 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">6</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">クロスモデルテスト（ブラインド）</div>
+              <div class="step-agents">
+                <span class="agent-pill opus">Tester</span>
+                <span class="agent-pill cross-pill">Cross-Model</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            Claude Testerは<code>plan-to-exec.md</code>を読み取り。クロスモデルTesterは<code>briefing.md</code>を読み取り。異なるフレーミング、別々のworktree、別々のタイムアウト。互いの結果を読むことはありません。
+            <div class="step-badges"><span class="tag purple">ブラインドウォール</span><span class="tag amber">分岐フレーミング</span><span class="tag">Worktree分離</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 7 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">7</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">クロスモデル検証（ブラインド）</div>
+              <div class="step-agents">
+                <span class="agent-pill opus">Verifier</span>
+                <span class="agent-pill cross-pill">Cross-Model</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            ステップ6と同じブラインド分岐パターン。Consultantの分離: 照合まで結果は共有されません。
+            <div class="step-badges"><span class="tag purple">ブラインドウォール</span><span class="tag amber">分岐フレーミング</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 8 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">8</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">照合</div>
+              <div class="step-agents">
+                <span class="agent-pill lead-pill">Lead</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            構造化サマリーを読み取り。5カテゴリ障害分類: <strong>IMPL</strong>&rarr;ステップ5、<strong>ARCH</strong>&rarr;ステップ4、<strong>REQ</strong>&rarr;ステップ2、<strong>ENV</strong>&rarr;ステップ1、<strong>TEST</strong>&rarr;ステップ6。FAILで<code>bmb_learn MISTAKE</code> + 分類されたループバックをトリガー。
+            <div class="step-badges"><span class="tag cyan">自動学習</span><span class="tag">障害分類</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 9 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">9</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">簡素化 + 再検証</div>
+              <div class="step-agents">
+                <span class="agent-pill opus">Simplifier</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            最小限の安全な改善。ビルド + テストの合格が必須（再検証）。失敗時は<code>bmb_learn MISTAKE</code> + リバート + オリジナルで続行。
+            <div class="step-badges"><span class="tag green">再検証</span><span class="tag cyan">自動学習</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 10 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">10</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">ドキュメント更新</div>
+              <div class="step-agents">
+                <span class="agent-pill sonnet">Writer</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            Writerがドキュメントを更新し、無効な参照を削除し、変更されたすべてのファイル間の一貫性をクロスバリデーション。
+          </div>
+        </div>
+      </div>
+      <!-- Step 10.5 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">10.5</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">振り返り分析</div>
+              <div class="step-agents">
+                <span class="agent-pill" style="background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff">Analyst</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            Analystが現在のセッションについて<code>analytics.db</code>をクエリ。<strong>Bird&rsquo;s Law重大度</strong>（critical / warn / info）でイベントを分類。<code>pattern_counts</code>をクロスリファレンスし、CLAUDE.mdプロモーション対象の再発障害（2回以上）を検出。<code>analyst-report.md</code>を作成（3〜5分のタイムアウト、タイムアウト時はパイプライン続行）。
+            <div class="step-badges"><span class="tag green">Bird&rsquo;s Law</span><span class="tag cyan">pattern_counts</span><span class="tag">読み取り専用エージェント</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 11 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">11</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">クリーンアップ + セッション準備</div>
+              <div class="step-agents">
+                <span class="agent-pill lead-pill">Lead</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            成功時に<code>bmb_learn PRAISE</code>。再発回数2以上をチェック &rarr; CLAUDE.mdプロモーションを提案。Gitコミット/プッシュ。FTS5インデックス作成。次のセッション用にsession-prep.mdを生成。
+            <div class="step-badges"><span class="tag cyan">自動学習</span><span class="tag">セッション継続性</span><span class="tag green">CLAUDE.mdプロモーション</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mermaid #2: Pipeline Flowchart -->
+    <h3>パイプラインフロー図</h3>
+    <div class="mermaid-wrap fade-in">
+      <pre class="mermaid">
+flowchart TD
+  S1["1. Setup<br/><i>tmux, session, learnings</i>"]
+  S2["2. Brainstorm + Consultant<br/><i>min 2 rounds</i>"]
+  S3{"3. User Approval"}
+  S4["4. Architecture Council<br/><i>2-4 debate rounds</i>"]
+  S5["5. Execution<br/><i>worktree-isolated</i>"]
+  S55["5.5 Merge Worktrees"]
+  S6["6. Blind Testing<br/><i>divergent framing</i>"]
+  S7["7. Blind Verification<br/><i>divergent framing</i>"]
+  S8{"8. Reconciliation"}
+  S9["9. Simplify + Re-verify"]
+  S10["10. Docs Update"]
+  S105["10.5 Retrospective Analysis<br/><i>Bird's Law severity</i>"]
+  S11["11. Cleanup + Session Prep"]
+
+  S1 --> S2
+  S2 --> S3
+  S3 -->|"YES"| S4
+  S3 -->|"MODIFY"| S2
+  S3 -->|"NO"| CANCEL["Cancel"]
+  S4 -->|"skip: bugfix/infra"| S5
+  S4 --> S5
+
+  subgraph parallel ["Parallel Worktrees"]
+    direction LR
+    EX["Executor"]
+    FE["Frontend<br/><i>if detected</i>"]
+  end
+  S5 --> parallel
+  parallel --> S55
+  S55 --> S6
+  S6 --> S7
+  S7 --> S8
+  S8 -->|"PASS"| S9
+  S8 -->|"IMPL fail"| S5
+  S8 -->|"ARCH fail"| S4
+  S8 -->|"REQ fail"| S2
+  S8 -->|"ENV fail"| S1
+  S8 -->|"TEST fail"| S6
+  S9 --> S10
+  S10 --> S105
+  S105 --> S11
+
+  classDef decision fill:#1a1500,stroke:#d97706,color:#f59e0b
+  classDef cancel fill:#2a0a0a,stroke:#ef4444,color:#ef4444
+  classDef step fill:#111827,stroke:#1e3a5f,color:#e8edf5
+  classDef parallel fill:#0a1628,stroke:#3b82f6,color:#60a5fa
+  classDef analyst fill:#0a2010,stroke:#22c55e,color:#4ade80
+
+  class S3,S8 decision
+  class CANCEL cancel
+  class S1,S2,S4,S5,S55,S6,S7,S9,S10,S11 step
+  class EX,FE parallel
+  class S105 analyst
+      </pre>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ DATA FLOW ═══════════════════ -->
+<section id="dataflow">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">04 &mdash; データ</div>
+      <h2>ハンドオフ・データフロー</h2>
+      <p class="section-desc">アーティファクトが.bmb/ディレクトリを通じてエージェント間でどのように流れるか。Leadはコードに一切触れず、サマリーのみ読み取ります。</p>
+    </div>
+
+    <!-- Mermaid #3: Handoff Chain -->
+    <div class="mermaid-wrap fade-in">
+      <pre class="mermaid">
+flowchart LR
+  User["👤 User"]
+  Lead["🎯 Lead"]
+  Brief["📋 briefing.md"]
+  Arch["📐 Architect"]
+  Plan["📄 plan-to-exec.md"]
+  ExFe["⚙️ Executor<br/>🎨 Frontend"]
+  Merge["🔀 Merge"]
+  Test["🧪 Tester<br/><i>blind</i>"]
+  Verify["✅ Verifier<br/><i>blind</i>"]
+  Recon["⚖️ Reconcile"]
+  Simp["🧹 Simplifier"]
+  Write["📝 Writer"]
+  Output["✨ Output"]
+
+  User -->|"intent"| Lead
+  Lead -->|"brainstorm"| Brief
+  Brief -->|"briefing"| Arch
+  Arch -->|"council"| Plan
+  Plan -->|"instructions"| ExFe
+  ExFe -->|"worktrees"| Merge
+  Merge -->|"merged code"| Test
+  Merge -->|"merged code"| Verify
+  Test -->|"test-summary"| Recon
+  Verify -->|"verify-summary"| Recon
+  Recon -->|"PASS"| Simp
+  Simp -->|"cleaned"| Write
+  Write --> Output
+
+  classDef artifact fill:#1a2234,stroke:#3b82f6,color:#60a5fa
+  classDef agent fill:#111827,stroke:#1e3a5f,color:#e8edf5
+
+  class Brief,Plan artifact
+  class User,Lead,Arch,ExFe,Merge,Test,Verify,Recon,Simp,Write,Output agent
+      </pre>
+    </div>
+
+    <!-- Mermaid #4: Consultant Feed Timeline -->
+    <h3>Consultantフィードタイムライン</h3>
+    <div class="mermaid-wrap fade-in">
+      <pre class="mermaid">
+gantt
+  title Consultant Monitoring (Steps 2–11)
+  dateFormat X
+  axisFormat %s
+
+  section Brainstorm
+    Bidirectional with Lead          :active, 0, 2
+
+  section Approval
+    Monitor user decision            :1, 3
+
+  section Council
+    Observe debate rounds            :2, 4
+
+  section Execution
+    Track progress via feed file     :3, 6
+
+  section Testing
+    Monitor blind test results       :5, 7
+
+  section Verification
+    Monitor blind verify results     :6, 8
+
+  section Reconciliation
+    Observe failure classification   :7, 9
+
+  section Simplify
+    Track re-verify outcome          :8, 10
+
+  section Docs
+    Validate doc consistency         :9, 11
+
+  section Cleanup
+    Final session summary            :10, 12
+      </pre>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ BLIND PROTOCOL ═══════════════════ -->
+<section id="blind">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">05 &mdash; 品質</div>
+      <h2>ブラインド分岐プロトコル</h2>
+      <p class="section-desc">結果に対してブラインドなだけでなく、問題のフレーミングが分岐。ワークスペースレベルのブラインド・クロスモデル検証。</p>
+    </div>
+    <div class="blind-wall fade-in">
+      <div class="blind-track claude">
+        <h4 style="color:var(--accent-light)">Claudeトラック</h4>
+        <div class="blind-detail">
+          <strong>読み取り:</strong> plan-to-exec.md + diff<br>
+          <strong>観点:</strong> 実装の忠実度<br>
+          <strong>Worktree:</strong> tester-claude / verifier-claude<br>
+          <strong>タイムアウト:</strong> claude_agent (1200s)<br><br>
+          <strong style="color:var(--red)">絶対に読まない:</strong> *-cross.md
+        </div>
+      </div>
+      <div class="blind-separator">
+        <span>BLIND WALL</span>
+      </div>
+      <div class="blind-track cross">
+        <h4 style="color:var(--amber)">クロスモデルトラック</h4>
+        <div class="blind-detail">
+          <strong>読み取り:</strong> briefing.md + diff<br>
+          <strong>観点:</strong> ユーザー意図の忠実度<br>
+          <strong>Worktree:</strong> tester-cross / verifier-cross<br>
+          <strong>タイムアウト:</strong> cross_model (3600s)<br><br>
+          <strong style="color:var(--red)">絶対に読まない:</strong> *-claude.md
+        </div>
+      </div>
+    </div>
+    <div style="max-width:700px;margin:24px auto 0;text-align:center;color:var(--text-muted);font-size:0.9rem;line-height:1.8;">
+      <strong style="color:var(--text)">分岐フレーミングが重要な理由:</strong> Claudeは詳細な実行計画を見て「計画通りに構築できたか？」を確認。クロスモデルは元のユーザーブリーフィングを見て「ユーザーが本当に望んだものを構築できたか？」を確認。これにより<em>計画には忠実だがユーザーには不忠実な</em>実装を検出できます。
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ WORKTREES ═══════════════════ -->
+<section id="worktrees">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">06 &mdash; 分離</div>
+      <h2>Worktreeライフサイクル</h2>
+      <p class="section-desc">すべての並列エージェントが独自のgit worktreeを取得。共有状態なし、index.lockの競合なし、真のファイルシステム分離。</p>
+    </div>
+
+    <!-- Mermaid #6: Worktree Lifecycle -->
+    <div class="mermaid-wrap fade-in">
+      <pre class="mermaid">
+gantt
+  title Worktree Lifecycle per Pipeline Run
+  dateFormat X
+  axisFormat Step %s
+
+  section Executor
+    Create worktree     :e1, 4, 5
+    Work in worktree    :e2, 5, 6
+    Merge to main       :crit, e3, 6, 7
+
+  section Frontend
+    Create worktree     :f1, 4, 5
+    Work in worktree    :f2, 5, 6
+    Merge to main       :crit, f3, 6, 7
+
+  section Tester-Claude
+    Create worktree     :tc1, 6, 7
+    Run tests           :tc2, 7, 8
+    Cleanup             :tc3, 8, 9
+
+  section Tester-Cross
+    Create worktree     :tx1, 6, 7
+    Run tests           :tx2, 7, 8
+    Cleanup             :tx3, 8, 9
+
+  section Verifier-Claude
+    Create worktree     :vc1, 7, 8
+    Verify              :vc2, 8, 9
+    Cleanup             :vc3, 9, 10
+
+  section Verifier-Cross
+    Create worktree     :vx1, 7, 8
+    Verify              :vx2, 8, 9
+    Cleanup             :vx3, 9, 10
+      </pre>
+    </div>
+
+    <div class="code-block fade-in"><span class="comment">Step 4</span>  HEADからexecutor + frontend worktreeを作成
+        <span class="function">git worktree add</span> .bmb/worktrees/executor bmb-executor-{SESSION}
+        <span class="function">git worktree add</span> .bmb/worktrees/frontend bmb-frontend-{SESSION}
+
+<span class="comment">Step 5</span>  エージェントが<span class="keyword">分離された</span>worktreeで作業（競合の可能性ゼロ）
+
+<span class="comment">Step 5.5</span> worktreeをmainにマージ
+        worktreeでコミット &rarr; merge --no-edit &rarr; worktree削除
+        コンフリクト？ &rarr; <span class="string">bmb_learn MISTAKE</span> + ユーザーにエスカレーション
+
+<span class="comment">Step 6</span>  マージ済みHEADからTester worktreeを<span class="keyword">2つ</span>作成
+        tester-claude + tester-cross
+
+<span class="comment">Step 7</span>  マージ済みHEADからVerifier worktreeを<span class="keyword">2つ</span>作成
+        verifier-claude + verifier-cross
+
+<span class="comment">Step 8+</span> 残りのすべてのworktreeを削除
+        <span class="function">git worktree list</span> | grep '.bmb/worktrees' | xargs -I{} git worktree remove {}</div>
+  </div>
+</section>
+
+<!-- ═══════════════════ CROSS-MODEL ═══════════════════ -->
+<section id="crossmodel">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">07 &mdash; マルチモデル</div>
+      <h2>クロスモデルプロトコル</h2>
+      <p class="section-desc">Council討論はClaude &harr; Codex/Geminiのファイル交換を使用。プロファイルベースの権限で必要な場所を読み取り専用に維持。</p>
+    </div>
+
+    <!-- Mermaid #5: Council Sequence Diagram -->
+    <div class="mermaid-wrap fade-in">
+      <pre class="mermaid">
+sequenceDiagram
+  participant A as Architect<br/>(Claude Opus)
+  participant F as Council Files<br/>(.bmb/council/)
+  participant X as Cross-Model<br/>(Codex / Gemini)
+
+  Note over A,X: Round 1 — Initial Proposals
+  A->>F: Write claude-proposal.md
+  X->>F: Write cross-proposal.md
+
+  Note over A,X: Round 2 — Critique
+  A->>F: Read cross-proposal.md
+  A->>F: Write claude-critique.md
+  X->>F: Read claude-proposal.md
+  X->>F: Write cross-critique.md
+
+  Note over A,X: Round 3 — Synthesis (optional)
+  A->>F: Read cross-critique.md
+  A->>F: Write claude-synthesis.md
+  X->>F: Read claude-critique.md
+  X->>F: Write cross-synthesis.md
+
+  Note over A,X: Round 4 — Final Decision
+  A->>F: Read all files
+  A->>F: Write plan-to-exec.md ✅
+
+  Note right of X: Cross-Model uses<br/>--profile read-only
+      </pre>
+    </div>
+
+    <div class="card-grid fade-in" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon cross">R</div>
+          <div><div class="card-title">読み取り専用プロファイル</div></div>
+        </div>
+        <div class="card-desc"><code>council</code>と<code>verify</code>プロファイル: クロスモデルはコードを読み取り、<code>.bmb/</code>にのみ書き込み可能。本番への書き込みなし。</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon cross">W</div>
+          <div><div class="card-title">書き込みプロファイル</div></div>
+        </div>
+        <div class="card-desc"><code>test</code>と<code>exec-assist</code>プロファイル: クロスモデルはworktreeスコープ内でテストとヘルパーコードを書き込み可能。</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon cross">T</div>
+          <div><div class="card-title">トラック別タイムアウト</div></div>
+        </div>
+        <div class="card-desc">Claude: デフォルト1200s。クロスモデル: デフォルト3600s。<code>bmb-config.sh</code>で設定可能。独立したデッドライン追跡。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ COMPRESSION ═══════════════════ -->
+<section id="compression">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">08 &mdash; コンテキスト</div>
+      <h2>3層コンテキスト圧縮</h2>
+      <p class="section-desc">Leadのコンテキストウィンドウは共有リソースです。3つのレイヤーにより、容量の50%を超えないことを保証します。</p>
+    </div>
+    <div class="tier-diagram fade-in">
+      <div class="tier">
+        <div class="tier-num">L1</div>
+        <div class="tier-content">
+          <div class="tier-title">読み取り時圧縮</div>
+          <div class="tier-desc">Leadは<code>.compressed/*.summary.md</code>のみ読み取り（最大300トークン）。生のアーティファクトは紛争時のみアクセス。</div>
+        </div>
+      </div>
+      <div style="text-align:center;color:var(--text-dim);font-size:1.5rem;">&darr;</div>
+      <div class="tier">
+        <div class="tier-num">L2</div>
+        <div class="tier-content">
+          <div class="tier-title">書き込み時キャッシュ</div>
+          <div class="tier-desc">エージェントは50行を超えるツール出力を<code>.tool-cache/</code>にキャッシュ。サマリーのみ保持: "Modified: auth.ts (47 lines)"、"PASS: 12, FAIL: 0"。</div>
+        </div>
+      </div>
+      <div style="text-align:center;color:var(--text-dim);font-size:1.5rem;">&darr;</div>
+      <div class="tier">
+        <div class="tier-num">L3</div>
+        <div class="tier-content">
+          <div class="tier-title">参照時インデックス</div>
+          <div class="tier-desc">FTS5データベースが過去のCouncil決定とハンドオフをインデックス。新しい作業を開始する前にクエリして過去の決定を再利用。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ AUTO-LEARNING ═══════════════════ -->
+<section id="learning">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">09 &mdash; インテリジェンス</div>
+      <h2>自動学習システム</h2>
+      <p class="section-desc">ミス、修正、成功が自動的に記録されます。過去の落とし穴が、すべてのプロジェクトの将来のセッションに注入されます。</p>
+    </div>
+    <div class="tier-diagram fade-in">
+      <div class="tier">
+        <div class="tier-num">T1</div>
+        <div class="tier-content">
+          <div class="tier-title">プロジェクトローカル</div>
+          <div class="tier-desc"><code>.bmb/learnings.md</code> &mdash; 学習ごとに1行、時系列で追記。ステップ1でこのプロジェクト用に読み込み。</div>
+        </div>
+        <div class="tier-arrow">&darr;</div>
+      </div>
+      <div style="text-align:center;color:var(--text-dim);font-size:1.5rem;">&darr;</div>
+      <div class="tier">
+        <div class="tier-num">T2</div>
+        <div class="tier-content">
+          <div class="tier-title">グローバル・クロスプロジェクト</div>
+          <div class="tier-desc"><code>~/.claude/bmb-system/learnings-global.md</code> &mdash; 同じ形式 + [project_name]タグ。すべてのBMBプロジェクト間で共有。</div>
+        </div>
+        <div class="tier-arrow">&darr;</div>
+      </div>
+      <div style="text-align:center;color:var(--text-dim);font-size:1.5rem;">&darr;</div>
+      <div class="tier">
+        <div class="tier-num">T3</div>
+        <div class="tier-content">
+          <div class="tier-title">CLAUDE.mdプロモーション</div>
+          <div class="tier-desc">再発回数2以上 &rarr; ユーザーに提案 &rarr; 恒久ルール化。自動編集は一切なし。ユーザーが常に承認。</div>
+        </div>
+      </div>
+    </div>
+    <div class="code-block fade-in" style="margin-top:32px"><span class="comment"># learnings.mdエントリの例</span>
+<span class="string">[2026-03-10 14:32]</span> MISTAKE (step 8): Missing input validation &rarr; Always validate at API boundary
+<span class="string">[2026-03-10 15:01]</span> CORRECTION (step 3): User changed auth to OAuth &rarr; Confirm auth strategy in brainstorm
+<span class="string">[2026-03-10 16:45]</span> PRAISE (step 11): Pipeline completed successfully &rarr; Current approach works
+
+<span class="comment"># コンテキストコスト: 約150トークン（5行 &times; 約30トークン）。無視できる量。</span></div>
+  </div>
+</section>
+
+<!-- ═══════════════════ RECIPES ═══════════════════ -->
+<section id="recipes">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">10 &mdash; レシピ</div>
+      <h2>レシピマトリクス</h2>
+      <p class="section-desc">6つのタスクタイプ、それぞれ最適化されたパイプラインパスを持ちます。Consultantはレシピに関係なく常に存在します。</p>
+    </div>
+    <div class="recipe-grid fade-in">
+      <!-- Feature -->
+      <div class="recipe-card feature">
+        <div class="recipe-icon">&#9889;</div>
+        <div class="recipe-name">Feature</div>
+        <div class="recipe-chain">
+          Brainstorm <span class="arrow">&rarr;</span> Architect <span class="arrow">&rarr;</span> Exec+Frontend <span class="arrow">&rarr;</span> Test <span class="arrow">&rarr;</span> Verify <span class="arrow">&rarr;</span> Simplify <span class="arrow">&rarr;</span> Write
+        </div>
+        <div class="recipe-flags">
+          <span class="tag purple">Council</span>
+          <span class="tag amber">クロス: test+verify</span>
+          <span class="tag">フロントエンド: 検出時</span>
+        </div>
+      </div>
+      <!-- Bugfix -->
+      <div class="recipe-card bugfix">
+        <div class="recipe-icon">&#128295;</div>
+        <div class="recipe-name">Bugfix</div>
+        <div class="recipe-chain">
+          Brainstorm <span class="arrow">&rarr;</span> Exec <span class="arrow">&rarr;</span> Test <span class="arrow">&rarr;</span> Verify <span class="arrow">&rarr;</span> Write
+        </div>
+        <div class="recipe-flags">
+          <span class="tag" style="opacity:0.4">Councilなし</span>
+          <span class="tag amber">クロス: test+verify</span>
+          <span class="tag" style="opacity:0.4">フロントエンドなし</span>
+        </div>
+      </div>
+      <!-- Refactor -->
+      <div class="recipe-card refactor">
+        <div class="recipe-icon">&#9851;&#65039;</div>
+        <div class="recipe-name">Refactor</div>
+        <div class="recipe-chain">
+          Brainstorm <span class="arrow">&rarr;</span> Architect <span class="arrow">&rarr;</span> Exec+Frontend <span class="arrow">&rarr;</span> Verify <span class="arrow">&rarr;</span> Simplify <span class="arrow">&rarr;</span> Write
+        </div>
+        <div class="recipe-flags">
+          <span class="tag purple">Council</span>
+          <span class="tag amber">クロス: verifyのみ</span>
+          <span class="tag">フロントエンド: 検出時</span>
+        </div>
+      </div>
+      <!-- Research -->
+      <div class="recipe-card research">
+        <div class="recipe-icon">&#128269;</div>
+        <div class="recipe-name">Research</div>
+        <div class="recipe-chain">
+          ブレインストーミングのみ
+        </div>
+        <div class="recipe-flags">
+          <span class="tag" style="opacity:0.4">Council: 任意</span>
+          <span class="tag" style="opacity:0.4">クロスモデルなし</span>
+          <span class="tag" style="opacity:0.4">フロントエンドなし</span>
+        </div>
+      </div>
+      <!-- Review -->
+      <div class="recipe-card review-r">
+        <div class="recipe-icon">&#128270;</div>
+        <div class="recipe-name">Review</div>
+        <div class="recipe-chain">
+          Brainstorm <span class="arrow">&rarr;</span> Verifier <span class="arrow">（レビューモード）</span>
+        </div>
+        <div class="recipe-flags">
+          <span class="tag" style="opacity:0.4">Councilなし</span>
+          <span class="tag amber">クロス: verifyのみ</span>
+          <span class="tag" style="opacity:0.4">フロントエンドなし</span>
+        </div>
+      </div>
+      <!-- Infra -->
+      <div class="recipe-card infra">
+        <div class="recipe-icon">&#9881;&#65039;</div>
+        <div class="recipe-name">Infra</div>
+        <div class="recipe-chain">
+          Brainstorm <span class="arrow">&rarr;</span> Exec <span class="arrow">&rarr;</span> Verify <span class="arrow">&rarr;</span> Write
+        </div>
+        <div class="recipe-flags">
+          <span class="tag" style="opacity:0.4">Councilなし</span>
+          <span class="tag amber">クロス: verifyのみ</span>
+          <span class="tag" style="opacity:0.4">フロントエンドなし</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SKILLS ═══════════════════ -->
+<section id="skills">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">11 &mdash; コマンド</div>
+      <h2>スキルコマンド</h2>
+      <p class="section-desc">4つのスラッシュコマンドがBMBの機能をさまざまなスケールで提供 &mdash; フルパイプラインからフォーカスされたブレインストーミングまで。</p>
+    </div>
+
+    <div class="card-grid fade-in">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon lead">/B</div>
+          <div>
+            <div class="card-title">/BMB</div>
+            <div class="card-model">フルパイプライン</div>
+          </div>
+        </div>
+        <div class="card-desc">完全な11.5ステップA-to-Zパイプライン。クロスモデルCouncil、ブラインド検証、分析、簡素化、セッション継続性。重要な機能やバグ修正に使用。</div>
+        <div class="card-tags">
+          <span class="tag">11.5ステップ</span>
+          <span class="tag purple">クロスモデル</span>
+          <span class="tag green">Worktree</span>
+          <span class="tag amber">ブラインド検証</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon new">/Bb</div>
+          <div>
+            <div class="card-title">/BMB-brainstorm</div>
+            <div class="card-model">アイデア出し</div>
+          </div>
+        </div>
+        <div class="card-desc">Lead + Consultant双方向ブレインストーミングと会話ログ。コードを書く前に意図、要件、設計を探索。</div>
+        <div class="card-tags">
+          <span class="tag">5フェーズ</span>
+          <span class="tag cyan">Consultant</span>
+          <span class="tag">コードなし</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">/Br</div>
+          <div>
+            <div class="card-title">/BMB-refactoring</div>
+            <div class="card-model">コード品質</div>
+          </div>
+        </div>
+        <div class="card-desc">クロスモデルレビューによる並列分析、Worktree分離された実行、レビューサイクル、マージ。機能変更なしで既存コードの改善に特化。</div>
+        <div class="card-tags">
+          <span class="tag">6フェーズ</span>
+          <span class="tag purple">クロスモデル</span>
+          <span class="tag green">Worktree</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon sonnet">/Bs</div>
+          <div>
+            <div class="card-title">/BMB-setup</div>
+            <div class="card-model">設定</div>
+          </div>
+        </div>
+        <div class="card-desc">ワンタイムのプロジェクトセットアップ: 前提条件チェック、設定生成、gitignoreルール、確認。初回パイプライン使用前にプロジェクトごとに1回実行。</div>
+        <div class="card-tags">
+          <span class="tag">5ステップ</span>
+          <span class="tag">前提条件</span>
+        </div>
+      </div>
+    </div>
+
+    <h3>スキル関連図</h3>
+    <div class="mermaid-wrap fade-in">
+      <pre class="mermaid">
+flowchart LR
+    Setup["/BMB-setup\n⚙️ Config"]
+    BMB["/BMB\n🔧 Full Pipeline"]
+    Brainstorm["/BMB-brainstorm\n💡 Ideation"]
+    Refactoring["/BMB-refactoring\n🔄 Code Quality"]
+
+    Setup -->|"prerequisite"| BMB
+    Setup -->|"prerequisite"| Brainstorm
+    Setup -->|"prerequisite"| Refactoring
+    Brainstorm -.->|"feeds into"| BMB
+    Refactoring -.->|"standalone"| BMB
+
+    style Setup fill:#111827,stroke:#22c55e,color:#e8edf5
+    style BMB fill:#111827,stroke:#3b82f6,color:#e8edf5,stroke-width:3px
+    style Brainstorm fill:#111827,stroke:#22d3ee,color:#e8edf5
+    style Refactoring fill:#111827,stroke:#a78bfa,color:#e8edf5
+      </pre>
+    </div>
+
+    <h3>ステップカバレッジ比較</h3>
+    <div class="table-wrap fade-in">
+      <table>
+        <thead>
+          <tr>
+            <th>フェーズ</th>
+            <th>/BMB</th>
+            <th>/BMB-brainstorm</th>
+            <th>/BMB-refactoring</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>セットアップ / 設定</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td></tr>
+          <tr><td>Consultantセッション</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td></tr>
+          <tr><td>ブレインストーム / 分析</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--green)">&#10003; 並列</td></tr>
+          <tr><td>Council討論</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td><td style="color:var(--green)">&#10003; 統合</td></tr>
+          <tr><td>アーキテクチャ計画</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td><td style="color:var(--text-dim)">&mdash;</td></tr>
+          <tr><td>実行（Worktree）</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td><td style="color:var(--green)">&#10003;</td></tr>
+          <tr><td>テスト</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td><td style="color:var(--text-dim)">&mdash;</td></tr>
+          <tr><td>検証（ブラインド）</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td><td style="color:var(--green)">&#10003; レビュー</td></tr>
+          <tr><td>修正サイクル</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td><td style="color:var(--green)">&#10003;</td></tr>
+          <tr><td>簡素化</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td><td style="color:var(--text-dim)">&mdash;</td></tr>
+          <tr><td>マージ / クリーンアップ</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--green)">&#10003; サマリー</td><td style="color:var(--green)">&#10003;</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ DEGRADATION ═══════════════════ -->
+<section id="degradation">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">12 &mdash; レジリエンス</div>
+      <h2>グレースフルデグラデーション</h2>
+      <p class="section-desc">パイプラインは決してブロックしません。すべての障害モードに定義されたフォールバックがあります。</p>
+    </div>
+    <div class="table-wrap fade-in">
+      <table>
+        <thead><tr><th>シナリオ</th><th>動作</th></tr></thead>
+        <tbody>
+          <tr><td>クロスモデル利用不可（Council）</td><td>ソロ設計（Claude単体）、セッションログに記録</td></tr>
+          <tr><td>クロスモデル利用不可（テスト）</td><td>Claude単体のテスト結果、照合に記録</td></tr>
+          <tr><td>クロスモデル利用不可（検証）</td><td>Claude単体の検証、照合に記録</td></tr>
+          <tr><td>Claude Testerタイムアウト</td><td>タイムアウトをログ、クロスモデルの結果で続行</td></tr>
+          <tr><td>クロスモデルタイムアウト</td><td>Claude単体の結果で続行</td></tr>
+          <tr><td>マージコンフリクト</td><td><code>bmb_learn MISTAKE</code> + ユーザーにエスカレーション</td></tr>
+          <tr><td>Simplifierがテストを壊す</td><td><code>bmb_learn MISTAKE</code> + リバート + オリジナルで続行</td></tr>
+          <tr><td>Telegram環境変数未設定</td><td>通知をサイレントスキップ</td></tr>
+          <tr><td>knowledge.dbが存在しない</td><td>インデックス/検索をスキップ</td></tr>
+          <tr><td>フロントエンド未検出</td><td>Frontendエージェントをスキップ、Executorのみ</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ DIRECTORY ═══════════════════ -->
+<section id="directory">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">13 &mdash; 構造</div>
+      <h2>ディレクトリレイアウト</h2>
+      <p class="section-desc"><code>.bmb/</code>ディレクトリはすべてのパイプラインアーティファクトの唯一の情報源です。</p>
+    </div>
+    <div class="dir-tree fade-in">
+<span class="folder">.bmb/</span>
+├── <span class="folder">handoffs/</span>              <span class="desc">── エージェント間アーティファクト</span>
+│   ├── <span class="file">briefing.md</span>          <span class="desc">── Leadのブレインストーム出力</span>
+│   ├── <span class="file">plan-to-exec.md</span>      <span class="desc">── Architectの実行計画</span>
+│   ├── <span class="file">test-claude.md</span>       <span class="desc">── Claude Testerの結果</span>
+│   ├── <span class="file">test-cross.md</span>        <span class="desc">── クロスモデルTesterの結果</span>
+│   ├── <span class="file">verify-claude.md</span>     <span class="desc">── Claude Verifierの結果</span>
+│   └── <span class="file">verify-cross.md</span>      <span class="desc">── クロスモデルVerifierの結果</span>
+│   └── <span class="folder">.compressed/</span>     <span class="desc">── Lead用L1サマリー</span>
+│       ├── <span class="file">briefing.summary.md</span>
+│       ├── <span class="file">test-result-claude.summary.md</span>
+│       └── <span class="file">verify-result-claude.summary.md</span>
+├── <span class="folder">councils/</span>              <span class="desc">── クロスモデル討論ファイル</span>
+│   ├── <span class="file">LEGEND.md</span>            <span class="desc">── 全過去討論のインデックス</span>
+│   └── <span class="folder">{topic}/</span>
+│       ├── <span class="file">round-01-claude.md</span>
+│       ├── <span class="file">round-01-cross.md</span>
+│       └── <span class="file">CONSENSUS.md</span>
+├── <span class="folder">worktrees/</span>             <span class="desc">── Git worktreeマウントポイント</span>
+│   ├── <span class="folder">executor/</span>
+│   ├── <span class="folder">frontend/</span>
+│   ├── <span class="folder">tester-claude/</span>
+│   ├── <span class="folder">tester-cross/</span>
+│   ├── <span class="folder">verifier-claude/</span>
+│   └── <span class="folder">verifier-cross/</span>
+├── <span class="folder">sessions/</span>              <span class="desc">── セッションごとの状態</span>
+│   └── <span class="folder">{session_id}/</span>
+│       ├── <span class="file">session-prep.md</span>  <span class="desc">── 次セッションの継続性</span>
+│       └── <span class="file">conversation.log</span> <span class="desc">── Consultantフィード</span>
+├── <span class="folder">.tool-cache/</span>           <span class="desc">── L2書き込み時キャッシュ</span>
+├── <span class="file">config.json</span>            <span class="desc">── プロジェクト設定</span>
+├── <span class="file">learnings.md</span>           <span class="desc">── T1プロジェクトローカル学習</span>
+├── <span class="file">session-log.md</span>         <span class="desc">── 現在のセッションイベントログ</span>
+├── <span class="file">consultant-feed.md</span>     <span class="desc">── Lead → Consultantフィード</span>
+└── <span class="file">knowledge.db</span>           <span class="desc">── L3 FTS5参照インデックス</span>
+
+<span class="folder">~/.claude/bmb-system/</span>    <span class="desc">── グローバルBMBインストール</span>
+├── <span class="folder">scripts/</span>
+│   ├── <span class="file">cross-model-run.sh</span> <span class="desc">── クロスモデル呼び出し</span>
+│   ├── <span class="file">bmb-learn.sh</span>       <span class="desc">── 共有学習関数</span>
+│   ├── <span class="file">knowledge-index.sh</span> <span class="desc">── FTS5インデクサー</span>
+│   └── <span class="file">knowledge-search.sh</span><span class="desc">── FTS5検索</span>
+├── <span class="folder">config/</span>
+│   └── <span class="file">defaults.json</span>      <span class="desc">── デフォルト設定</span>
+└── <span class="file">learnings-global.md</span>    <span class="desc">── T2クロスプロジェクト学習</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ FOOTER ═══════════════════ -->
+<footer>
+  <div class="logo-text">BMB</div>
+  <p>Worktree分離によるクロスモデル・エージェントオーケストレーション<br>ブラインド分岐検証と自動学習を搭載。</p>
+  <div style="margin-top:20px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">
+    <a href="index.html" style="color:var(--text-dim);text-decoration:none;font-size:0.82rem;font-weight:500;">English</a>
+    <a href="index.ko.html" style="color:var(--text-dim);text-decoration:none;font-size:0.82rem;font-weight:500;">한국어</a>
+    <a href="index.ja.html" style="color:var(--accent-light);text-decoration:none;font-size:0.82rem;font-weight:500;">日本語</a>
+    <a href="index.zh-TW.html" style="color:var(--text-dim);text-decoration:none;font-size:0.82rem;font-weight:500;">繁體中文</a>
+  </div>
+  <p style="margin-top:20px;color:var(--text-dim);font-size:0.78rem;">Be-my-butler &mdash; Claude Code向けに構築</p>
+</footer>
+
+<script src="bmb-shared.js"></script>
+</body>
+</html>

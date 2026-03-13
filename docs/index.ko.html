@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BMB — Be My Butler | Claude Code 멀티 에이전트 오케스트레이션</title>
+<meta name="description" content="Claude Code를 위한 11.5단계, 9-에이전트 오케스트레이션 파이프라인. 크로스 모델 블라인드 검증, Council 토론, 애널리틱스, Worktree 격리 지원.">
+<meta property="og:title" content="BMB — Be My Butler">
+<meta property="og:description" content="크로스 모델 블라인드 검증과 애널리틱스를 갖춘 Claude Code용 9-에이전트, 11.5단계 오케스트레이션">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://raw.githubusercontent.com/project820/be-my-butler/main/assets/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="BMB — Be My Butler">
+<meta name="twitter:description" content="크로스 모델 블라인드 검증과 애널리틱스를 갖춘 Claude Code용 9-에이전트, 11.5단계 오케스트레이션">
+<link rel="alternate" hreflang="en" href="https://project820.github.io/be-my-butler/">
+<link rel="alternate" hreflang="ko" href="https://project820.github.io/be-my-butler/index.ko.html">
+<link rel="alternate" hreflang="ja" href="https://project820.github.io/be-my-butler/index.ja.html">
+<link rel="alternate" hreflang="zh-Hant" href="https://project820.github.io/be-my-butler/index.zh-TW.html">
+<link rel="alternate" hreflang="x-default" href="https://project820.github.io/be-my-butler/">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="bmb-shared.css">
+</head>
+<body>
+
+<!-- ─── Desktop Controls ──────────────────── -->
+<div class="lang-switcher">
+  <button class="lang-btn">&#127760; KO</button>
+  <div class="lang-dropdown">
+    <a href="index.html">English</a>
+    <a href="index.ko.html" class="active">한국어</a>
+    <a href="index.ja.html">日本語</a>
+    <a href="index.zh-TW.html">繁體中文</a>
+  </div>
+</div>
+<button class="slide-toggle" onclick="toggleSlideMode()">슬라이드 모드</button>
+<div class="slide-indicator"></div>
+<div class="slide-hint">← → 또는 J/K &middot; ESC로 종료</div>
+<div class="slide-dots"></div>
+
+<!-- ─── Mobile Hamburger + Drawer ─────────── -->
+<button class="hamburger" aria-label="메뉴">
+  <span></span><span></span><span></span>
+</button>
+<div class="drawer-overlay"></div>
+<div class="drawer">
+  <nav class="drawer-nav">
+    <a href="#principles">설계 원칙</a>
+    <a href="#agents">에이전트</a>
+    <a href="#pipeline">파이프라인</a>
+    <a href="#dataflow">데이터 흐름</a>
+    <a href="#blind">블라인드 프로토콜</a>
+    <a href="#worktrees">Worktree</a>
+    <a href="#crossmodel">크로스 모델</a>
+    <a href="#compression">압축</a>
+    <a href="#learning">자동 학습</a>
+    <a href="#recipes">레시피</a>
+    <a href="#skills">스킬</a>
+    <a href="#degradation">우아한 성능 저하</a>
+    <a href="#directory">디렉토리</a>
+    <hr style="border:0;border-top:1px solid var(--border);margin:8px 0;">
+    <a href="m.ko.html">📱 모바일 요약</a>
+  </nav>
+  <div class="drawer-lang">
+    <div class="drawer-lang-title">언어</div>
+    <a href="index.html">English</a>
+    <a href="index.ko.html" class="active">한국어</a>
+    <a href="index.ja.html">日本語</a>
+    <a href="index.zh-TW.html">繁體中文</a>
+  </div>
+</div>
+
+<!-- ═══════════════════ HERO ═══════════════════ -->
+<header class="hero">
+  <div class="hero-content">
+    <div class="hero-badge">
+      <span class="pulse"></span>
+      멀티 에이전트 오케스트레이션 시스템
+    </div>
+    <div style="display:inline-flex;align-items:center;gap:8px;margin-bottom:16px;">
+      <span style="display:inline-block;padding:4px 14px;border-radius:20px;background:var(--gradient-blue);color:#fff;font-family:'JetBrains Mono',monospace;font-size:0.8rem;font-weight:600;">v0.2.0</span>
+      <a href="https://github.com/project820/be-my-butler/blob/main/WHATS-NEW-0.2.md" style="display:inline-flex;align-items:center;gap:4px;padding:4px 14px;border-radius:20px;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);color:var(--green);font-size:0.8rem;font-weight:600;text-decoration:none;transition:all 0.2s;" onmouseover="this.style.background='rgba(34,197,94,0.2)'" onmouseout="this.style.background='rgba(34,197,94,0.12)'">v0.2 새로운 기능</a>
+    </div>
+    <h1>
+      <span class="gradient-text">BMB</span><br>
+      Be-my-butler
+    </h1>
+    <p class="subtitle">
+      Worktree 격리 크로스 모델 에이전트 오케스트레이션<br>
+      블라인드 분기 검증 및 자동 학습 시스템
+    </p>
+    <div style="display:flex;gap:12px;justify-content:center;margin-bottom:32px;flex-wrap:wrap;">
+      <a href="https://github.com/project820/be-my-butler" style="display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:10px;background:var(--gradient-blue);color:#fff;text-decoration:none;font-weight:600;font-size:0.95rem;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">GitHub 저장소</a>
+      <a href="https://github.com/project820/be-my-butler#quickstart" style="display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:10px;background:transparent;color:var(--accent-light);text-decoration:none;font-weight:600;font-size:0.95rem;border:1px solid var(--border);transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform=''">빠른 시작</a>
+    </div>
+    <div class="hero-lang-bar" style="display:flex;gap:8px;justify-content:center;margin-bottom:32px;flex-wrap:wrap;">
+      <span style="color:var(--text-dim);font-size:0.82rem;align-self:center;margin-right:4px;">&#127760;</span>
+      <a href="index.html" style="padding:5px 14px;border-radius:16px;font-size:0.8rem;font-weight:600;text-decoration:none;color:var(--text-muted);background:transparent;border:1px solid var(--border);transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent-light)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">English</a>
+      <a href="index.ko.html" style="padding:5px 14px;border-radius:16px;font-size:0.8rem;font-weight:600;text-decoration:none;color:#fff;background:var(--accent);border:1px solid var(--accent);">한국어</a>
+      <a href="index.ja.html" style="padding:5px 14px;border-radius:16px;font-size:0.8rem;font-weight:600;text-decoration:none;color:var(--text-muted);background:transparent;border:1px solid var(--border);transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent-light)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">日本語</a>
+      <a href="index.zh-TW.html" style="padding:5px 14px;border-radius:16px;font-size:0.8rem;font-weight:600;text-decoration:none;color:var(--text-muted);background:transparent;border:1px solid var(--border);transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent-light)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">繁體中文</a>
+    </div>
+    <div style="margin-bottom:36px;">
+      <code style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;padding:10px 24px;border-radius:8px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.15);color:var(--accent-light);">curl -fsSL https://raw.githubusercontent.com/project820/be-my-butler/main/install.sh | bash</code>
+    </div>
+    <div class="hero-stats">
+      <div class="stat">
+        <div class="stat-value">11.5</div>
+        <div class="stat-label">파이프라인 단계</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">9</div>
+        <div class="stat-label">에이전트</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">3</div>
+        <div class="stat-label">압축 레이어</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">4</div>
+        <div class="stat-label">스킬</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">6</div>
+        <div class="stat-label">레시피</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════ NAV ════════════════════ -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="#principles">설계 원칙</a>
+    <a href="#agents">에이전트</a>
+    <a href="#pipeline">파이프라인</a>
+    <a href="#dataflow">데이터 흐름</a>
+    <a href="#blind">블라인드 프로토콜</a>
+    <a href="#worktrees">Worktree</a>
+    <a href="#crossmodel">크로스 모델</a>
+    <a href="#compression">압축</a>
+    <a href="#learning">자동 학습</a>
+    <a href="#recipes">레시피</a>
+    <a href="#skills">스킬</a>
+    <a href="#degradation">우아한 성능 저하</a>
+    <a href="#directory">디렉토리</a>
+  </div>
+</nav>
+
+<!-- ═══════════════════ PRINCIPLES ═══════════════════ -->
+<section id="principles">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">01 &mdash; 기반</div>
+      <h2>핵심 설계 원칙</h2>
+      <p class="section-desc">모든 아키텍처 결정은 이 양보 불가 원칙에 기반합니다.</p>
+    </div>
+    <div class="card-grid card-grid-3 fade-in">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon lead">W</div>
+          <div><div class="card-title">Worktree 격리</div></div>
+        </div>
+        <div class="card-desc">쓰기 권한이 있는 모든 병렬 에이전트는 자체 <code>git worktree</code>를 사용합니다. 공유 상태 없음. index.lock 충돌 없음. 진정한 파일시스템 수준 격리.</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon cross">B</div>
+          <div><div class="card-title">블라인드 분기 프레이밍</div></div>
+        </div>
+        <div class="card-desc">크로스 모델 트랙은 <em>서로 다른</em> 컨텍스트 문서를 읽습니다. 결과에 대한 블라인드뿐만 아니라 &mdash; 문제 프레이밍 자체가 분기됩니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">L</div>
+          <div><div class="card-title">Lead: 씬 오케스트레이터</div></div>
+        </div>
+        <div class="card-desc">Lead는 <code>.bmb/</code>와 <code>CLAUDE.md</code>만 읽습니다. 코드를 직접 수정하지 않습니다. 컨텍스트 보호가 최우선 &mdash; Lead가 병목입니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon sonnet">C</div>
+          <div><div class="card-title">양방향 Consultant</div></div>
+        </div>
+        <div class="card-desc">SendMessage로 Consultant &rarr; Lead 피드백이 가능합니다. 사용자 대화의 비즈니스 규칙이 실제로 파이프라인에 도달합니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon new">A</div>
+          <div><div class="card-title">자동 학습</div></div>
+        </div>
+        <div class="card-desc">실수, 수정, 성공이 자동으로 기록됩니다. 과거의 함정이 향후 세션에 주입됩니다. 3단계: 로컬 &rarr; 글로벌 &rarr; CLAUDE.md.</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon lead">S</div>
+          <div><div class="card-title">세션 연속성</div></div>
+        </div>
+        <div class="card-desc"><code>session-prep.md</code>가 다음 세션을 위한 상태를 캡처합니다. 세션 간 컨텍스트가 보존됩니다. 작업은 절대 소실되지 않습니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">3</div>
+          <div><div class="card-title">3-레이어 압축</div></div>
+        </div>
+        <div class="card-desc">읽기 시점 요약, 쓰기 시점 캐싱, 참조 시점 FTS5. Lead 컨텍스트는 전체 파이프라인에서 50% 이하를 유지합니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon cross">P</div>
+          <div><div class="card-title">프로필 기반 권한</div></div>
+        </div>
+        <div class="card-desc">크로스 모델 호출은 역할별 프로필을 사용합니다: <code>council</code>과 <code>verify</code>는 읽기 전용입니다. 더 이상 <code>--full-auto</code>를 남용하지 않습니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon sonnet">G</div>
+          <div><div class="card-title">우아한 성능 저하</div></div>
+        </div>
+        <div class="card-desc">크로스 모델을 사용할 수 없나요? 파이프라인은 Claude 단독으로 계속됩니다. Simplifier가 테스트를 깨뜨리면? 되돌리고 진행합니다. 절대 차단하지 않습니다.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ AGENTS ═══════════════════ -->
+<section id="agents">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">02 &mdash; 팀</div>
+      <h2>에이전트 목록</h2>
+      <p class="section-desc">9개의 전문 에이전트가 명확한 역할과 엄격한 경계를 가집니다. 브레인스토밍부터 프로덕션 준비 코드까지.</p>
+    </div>
+
+    <!-- Mermaid #1: System Architecture -->
+    <div class="mermaid-wrap fade-in">
+      <pre class="mermaid">
+graph TB
+  User["👤 User"]
+  Lead["🎯 Lead<br/><i>Opus · Orchestrator</i>"]
+  Consultant["💬 Consultant<br/><i>Sonnet · Persistent</i>"]
+  Architect["📐 Architect<br/><i>Opus · Council</i>"]
+  Executor["⚙️ Executor<br/><i>Opus · Backend</i>"]
+  Frontend["🎨 Frontend<br/><i>Opus · UI</i>"]
+  Tester["🧪 Tester<br/><i>Opus · Blind</i>"]
+  Verifier["✅ Verifier<br/><i>Opus · Blind</i>"]
+  Simplifier["🧹 Simplifier<br/><i>Opus · Cleanup</i>"]
+  Writer["📝 Writer<br/><i>Sonnet · Docs</i>"]
+  BMB[".bmb/<br/><i>Handoffs · Artifacts</i>"]
+  CrossModel["🌐 Cross-Model<br/><i>Codex / Gemini</i>"]
+
+  User <-->|"brainstorm<br/>approve"| Lead
+  Lead <-->|"SendMessage<br/>bidirectional"| Consultant
+  Lead -->|"briefing"| Architect
+  Architect <-->|"council<br/>debate"| CrossModel
+  Lead -->|"plan-to-exec"| Executor
+  Lead -->|"plan-to-exec"| Frontend
+  Lead -->|"test request"| Tester
+  Tester -.->|"blind wall"| CrossModel
+  Lead -->|"verify request"| Verifier
+  Verifier -.->|"blind wall"| CrossModel
+  Lead -->|"simplify"| Simplifier
+  Lead -->|"write docs"| Writer
+  Architect -->|"writes"| BMB
+  Executor -->|"writes"| BMB
+  Frontend -->|"writes"| BMB
+  Tester -->|"writes"| BMB
+  Verifier -->|"writes"| BMB
+  Lead -->|"reads only"| BMB
+
+  classDef opus fill:#1a1030,stroke:#7c3aed,stroke-width:2px,color:#a78bfa
+  classDef sonnet fill:#0a2015,stroke:#16a34a,stroke-width:2px,color:#22c55e
+  classDef cross fill:#1a1500,stroke:#d97706,stroke-width:2px,color:#f59e0b
+  classDef user fill:#0a1628,stroke:#3b82f6,stroke-width:2px,color:#60a5fa
+  classDef storage fill:#111827,stroke:#1e3a5f,stroke-width:2px,color:#8494a7
+
+  class Lead,Architect,Executor,Frontend,Tester,Verifier,Simplifier opus
+  class Consultant,Writer sonnet
+  class CrossModel cross
+  class User user
+  class BMB storage
+      </pre>
+    </div>
+
+    <div class="card-grid fade-in">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon lead">L</div>
+          <div><div class="card-title">Lead</div><div class="card-model">Claude Opus &bull; 전체 파이프라인</div></div>
+        </div>
+        <div class="card-desc">오케스트레이션, 의사결정, 릴레이, 브레인스토밍. <code>.bmb/</code>만 읽습니다. 코드를 직접 작성하지 않습니다. 씬 지휘자.</div>
+        <div class="card-tags"><span class="tag">오케스트레이터</span><span class="tag cyan">인프로세스 브레인스토밍</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon sonnet">C</div>
+          <div><div class="card-title">Consultant</div><div class="card-model">Claude Sonnet &bull; Step 2&ndash;11</div></div>
+        </div>
+        <div class="card-desc">코디네이터 아이덴티티: 완전한 상황 인지, 명령 권한 없음. 듀얼 채널 (피드 파일 + SendMessage). 블라인드 단계 중 라이프사이클 이벤트 수신; 조정 후 전체 사후 브리핑 수신.</div>
+        <div class="card-tags"><span class="tag green">듀얼 채널</span><span class="tag">영속적</span><span class="tag cyan">사후 브리핑</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">A</div>
+          <div><div class="card-title">Architect</div><div class="card-model">Claude Opus &bull; Step 4</div></div>
+        </div>
+        <div class="card-desc">설계 + 크로스 모델 Council 토론. Claude vs Codex/Gemini 2&ndash;4라운드. plan-to-exec.md 작성. 설계 전 Context7으로 최신 라이브러리 문서 조회.</div>
+        <div class="card-tags"><span class="tag purple">Council 토론</span><span class="tag amber">크로스 모델</span><span class="tag cyan">Context7</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">E</div>
+          <div><div class="card-title">Executor</div><div class="card-model">Claude Opus &bull; Step 5</div></div>
+        </div>
+        <div class="card-desc">백엔드 구현. 격리된 git worktree에서 작업. 작성 전 Context7으로 최신 라이브러리 문서 조회. worktree 범위 내에서만 커밋.</div>
+        <div class="card-tags"><span class="tag">worktree 격리</span><span class="tag cyan">Context7</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">F</div>
+          <div><div class="card-title">Frontend</div><div class="card-model">Claude Opus &bull; Step 5</div></div>
+        </div>
+        <div class="card-desc">React/Next.js + shadcn/Tailwind 전문가. Executor와 별도의 worktree. Context7으로 최신 프레임워크 문서 조회. 프론트엔드 스코프가 감지될 때만 생성.</div>
+        <div class="card-tags"><span class="tag">worktree 격리</span><span class="tag">조건부</span><span class="tag cyan">Context7</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">T</div>
+          <div><div class="card-title">Tester</div><div class="card-model">Claude Opus &bull; Step 6</div></div>
+        </div>
+        <div class="card-desc">단위, 통합, 엣지 케이스 테스트. 분기 프레이밍을 통한 블라인드 크로스 모델 테스트의 일부.</div>
+        <div class="card-tags"><span class="tag purple">블라인드</span><span class="tag">worktree 격리</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">V</div>
+          <div><div class="card-title">Verifier</div><div class="card-model">Claude Opus &bull; Step 7</div></div>
+        </div>
+        <div class="card-desc">증거 기반 검증 + 코드 리뷰를 하나의 에이전트에서. 블라인드 크로스 모델 검증.</div>
+        <div class="card-tags"><span class="tag purple">블라인드</span><span class="tag cyan">리뷰 + 검증</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">S</div>
+          <div><div class="card-title">Simplifier</div><div class="card-model">Claude Opus &bull; Step 9</div></div>
+        </div>
+        <div class="card-desc">작업 후 코드 정리. 변경 후 재검증(빌드 + 테스트) 필수. 실패 시 자동 되돌리기.</div>
+        <div class="card-tags"><span class="tag green">재검증</span></div>
+      </div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:16px;flex-wrap:wrap">
+      <div class="card" style="max-width:400px">
+        <div class="card-header">
+          <div class="card-icon sonnet">W</div>
+          <div><div class="card-title">Writer</div><div class="card-model">Claude Sonnet &bull; Step 10</div></div>
+        </div>
+        <div class="card-desc">문서 업데이트 + 교차 검증. 문서 작업에는 Sonnet으로 충분합니다.</div>
+      </div>
+      <div class="card" style="max-width:400px">
+        <div class="card-header">
+          <div class="card-icon" style="background:linear-gradient(135deg,#22c55e,#16a34a)">A</div>
+          <div><div class="card-title">Analyst</div><div class="card-model">Claude Sonnet &bull; Step 10.5</div></div>
+        </div>
+        <div class="card-desc">회고 분석: <code>analytics.db</code>를 쿼리하고, Bird&rsquo;s Law 심각도(critical/warn/info)로 이벤트를 분류하며, <code>pattern_counts</code> 프로모션 후보를 도출합니다.</div>
+        <div class="card-tags"><span class="tag green">bypassPermissions</span><span class="tag">읽기 전용</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ PIPELINE ═══════════════════ -->
+<section id="pipeline">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">03 &mdash; 흐름</div>
+      <h2>11.5단계 파이프라인</h2>
+      <p class="section-desc">사용자 의도에서 프로덕션 준비 코드까지. 각 단계를 클릭하면 세부 정보를 볼 수 있습니다.</p>
+    </div>
+    <div class="accordion fade-in">
+      <!-- Step 1 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">1</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">설정</div>
+              <div class="step-agents">
+                <span class="agent-pill lead-pill">Lead</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            tmux 가드, 세션 ID, 디렉토리 구조, <strong>source bmb-learn.sh</strong>, 과거 MISTAKE 항목 로드 (로컬 + 글로벌), 설정, session-prep 확인, 대화 로거 시작.
+            <div class="step-badges"><span class="tag cyan">자동 학습</span><span class="tag">세션 연속성</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 2 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">2</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">브레인스토밍 + Consultant</div>
+              <div class="step-agents">
+                <span class="agent-pill lead-pill">Lead</span>
+                <span class="agent-pill sonnet">Consultant</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            Lead가 사용자와 직접 브레인스토밍 (별도의 brainstormer 에이전트 없음). 양방향 SendMessage로 영속적 Consultant 패널 생성. 최소 2라운드. <strong>Known Pitfalls</strong> 섹션이 포함된 브리핑 작성.
+            <div class="step-badges"><span class="tag green">인프로세스</span><span class="tag">양방향</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 3 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">3</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">사용자 승인</div>
+              <div class="step-agents">
+                <span class="agent-pill lead-pill">Lead</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            압축된 브리핑 제시. <strong>YES</strong> &rarr; <code>bmb_learn PRAISE</code>. <strong>MODIFY</strong> &rarr; <code>bmb_learn CORRECTION</code> + 업데이트. <strong>NO</strong> &rarr; 취소.
+            <div class="step-badges"><span class="tag cyan">자동 학습</span><span class="tag amber">3방향 분기</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 4 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">4</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">아키텍처 Council</div>
+              <div class="step-agents">
+                <span class="agent-pill opus">Architect</span>
+                <span class="agent-pill cross-pill">Cross-Model</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            실행용 git worktree 생성. Claude-Codex/Gemini Council 토론을 위해 Architect 생성 (2&ndash;4라운드). plan-to-exec.md 작성. <em>bugfix/infra 레시피의 경우 건너뜁니다.</em>
+            <div class="step-badges"><span class="tag purple">Council 토론</span><span class="tag amber">크로스 모델</span><span class="tag">건너뜀: bugfix, infra</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 5 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">5</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">실행</div>
+              <div class="step-agents">
+                <span class="agent-pill opus">Executor</span>
+                <span class="agent-pill opus">Frontend</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            Executor + Frontend (조건부)를 <strong>별도의 worktree</strong>에서 생성. git 충돌 없이 병렬 실행. 프론트엔드 스코프가 감지된 경우에만 Frontend 생성 (React, Vue, Svelte 등).
+            <div class="step-badges"><span class="tag">worktree 격리</span><span class="tag">병렬</span><span class="tag">조건부 프론트엔드</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 5.5 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">5.5</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">Worktree 병합</div>
+              <div class="step-agents">
+                <span class="agent-pill lead-pill">Lead</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            worktree에서 커밋 &rarr; main에 병합 &rarr; worktree 제거. 충돌 발생? <code>bmb_learn MISTAKE</code> + 사용자에게 에스컬레이션.
+            <div class="step-badges"><span class="tag cyan">자동 학습</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 6 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">6</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">크로스 모델 테스팅 (블라인드)</div>
+              <div class="step-agents">
+                <span class="agent-pill opus">Tester</span>
+                <span class="agent-pill cross-pill">Cross-Model</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            Claude Tester는 <code>plan-to-exec.md</code>를 읽습니다. Cross-Model Tester는 <code>briefing.md</code>를 읽습니다. 다른 프레이밍, 별도의 worktree, 별도의 타임아웃. 서로의 결과를 읽지 않습니다.
+            <div class="step-badges"><span class="tag purple">블라인드 월</span><span class="tag amber">분기 프레이밍</span><span class="tag">worktree 격리</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 7 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">7</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">크로스 모델 검증 (블라인드)</div>
+              <div class="step-agents">
+                <span class="agent-pill opus">Verifier</span>
+                <span class="agent-pill cross-pill">Cross-Model</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            Step 6과 동일한 블라인드 분기 패턴. Consultant 격리: 조정이 완료될 때까지 결과를 공유하지 않습니다.
+            <div class="step-badges"><span class="tag purple">블라인드 월</span><span class="tag amber">분기 프레이밍</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 8 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">8</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">조정</div>
+              <div class="step-agents">
+                <span class="agent-pill lead-pill">Lead</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            구조화된 요약 읽기. 5개 범주 실패 분류기: <strong>IMPL</strong>&rarr;Step 5, <strong>ARCH</strong>&rarr;Step 4, <strong>REQ</strong>&rarr;Step 2, <strong>ENV</strong>&rarr;Step 1, <strong>TEST</strong>&rarr;Step 6. FAIL 시 <code>bmb_learn MISTAKE</code> + 분류된 루프백 트리거.
+            <div class="step-badges"><span class="tag cyan">자동 학습</span><span class="tag">실패 분류</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 9 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">9</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">간소화 + 재검증</div>
+              <div class="step-agents">
+                <span class="agent-pill opus">Simplifier</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            최소한의 안전한 개선. 빌드 + 테스트 통과 필수 (재검증). 실패 &rarr; <code>bmb_learn MISTAKE</code> + 되돌리기 + 원본으로 진행.
+            <div class="step-badges"><span class="tag green">재검증</span><span class="tag cyan">자동 학습</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 10 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">10</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">문서 업데이트</div>
+              <div class="step-agents">
+                <span class="agent-pill sonnet">Writer</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            Writer가 문서를 업데이트하고, 죽은 참조를 제거하며, 수정된 모든 파일에서 일관성을 교차 검증합니다.
+          </div>
+        </div>
+      </div>
+      <!-- Step 10.5 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">10.5</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">회고 분석</div>
+              <div class="step-agents">
+                <span class="agent-pill" style="background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff">Analyst</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            Analyst가 현재 세션의 <code>analytics.db</code>를 쿼리합니다. <strong>Bird&rsquo;s Law 심각도</strong> (critical / warn / info)로 이벤트를 분류합니다. <code>pattern_counts</code>를 교차 참조하여 반복 실패 (&ge;2회 발생)를 찾아 CLAUDE.md 프로모션 대상을 식별합니다. <code>analyst-report.md</code> 작성 (3&ndash;5분 타임아웃; 타임아웃 시 파이프라인 계속).
+            <div class="step-badges"><span class="tag green">Bird&rsquo;s Law</span><span class="tag cyan">pattern_counts</span><span class="tag">읽기 전용 에이전트</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 11 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">11</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">정리 + 세션 준비</div>
+              <div class="step-agents">
+                <span class="agent-pill lead-pill">Lead</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            성공 시 <code>bmb_learn PRAISE</code>. 재발 &ge;2 확인 &rarr; CLAUDE.md 프로모션 제안. Git 커밋/푸시. FTS5 인덱싱. 다음 세션을 위한 session-prep.md 생성.
+            <div class="step-badges"><span class="tag cyan">자동 학습</span><span class="tag">세션 연속성</span><span class="tag green">CLAUDE.md 프로모션</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mermaid #2: Pipeline Flowchart -->
+    <h3>파이프라인 흐름도</h3>
+    <div class="mermaid-wrap fade-in">
+      <pre class="mermaid">
+flowchart TD
+  S1["1. Setup<br/><i>tmux, session, learnings</i>"]
+  S2["2. Brainstorm + Consultant<br/><i>min 2 rounds</i>"]
+  S3{"3. User Approval"}
+  S4["4. Architecture Council<br/><i>2-4 debate rounds</i>"]
+  S5["5. Execution<br/><i>worktree-isolated</i>"]
+  S55["5.5 Merge Worktrees"]
+  S6["6. Blind Testing<br/><i>divergent framing</i>"]
+  S7["7. Blind Verification<br/><i>divergent framing</i>"]
+  S8{"8. Reconciliation"}
+  S9["9. Simplify + Re-verify"]
+  S10["10. Docs Update"]
+  S105["10.5 Retrospective Analysis<br/><i>Bird's Law severity</i>"]
+  S11["11. Cleanup + Session Prep"]
+
+  S1 --> S2
+  S2 --> S3
+  S3 -->|"YES"| S4
+  S3 -->|"MODIFY"| S2
+  S3 -->|"NO"| CANCEL["Cancel"]
+  S4 -->|"skip: bugfix/infra"| S5
+  S4 --> S5
+
+  subgraph parallel ["Parallel Worktrees"]
+    direction LR
+    EX["Executor"]
+    FE["Frontend<br/><i>if detected</i>"]
+  end
+  S5 --> parallel
+  parallel --> S55
+  S55 --> S6
+  S6 --> S7
+  S7 --> S8
+  S8 -->|"PASS"| S9
+  S8 -->|"IMPL fail"| S5
+  S8 -->|"ARCH fail"| S4
+  S8 -->|"REQ fail"| S2
+  S8 -->|"ENV fail"| S1
+  S8 -->|"TEST fail"| S6
+  S9 --> S10
+  S10 --> S105
+  S105 --> S11
+
+  classDef decision fill:#1a1500,stroke:#d97706,color:#f59e0b
+  classDef cancel fill:#2a0a0a,stroke:#ef4444,color:#ef4444
+  classDef step fill:#111827,stroke:#1e3a5f,color:#e8edf5
+  classDef parallel fill:#0a1628,stroke:#3b82f6,color:#60a5fa
+  classDef analyst fill:#0a2010,stroke:#22c55e,color:#4ade80
+
+  class S3,S8 decision
+  class CANCEL cancel
+  class S1,S2,S4,S5,S55,S6,S7,S9,S10,S11 step
+  class EX,FE parallel
+  class S105 analyst
+      </pre>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ DATA FLOW ═══════════════════ -->
+<section id="dataflow">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">04 &mdash; 데이터</div>
+      <h2>핸드오프 데이터 흐름</h2>
+      <p class="section-desc">.bmb/ 디렉토리를 통해 에이전트 간에 아티팩트가 어떻게 흐르는지. Lead는 코드를 절대 건드리지 않으며 &mdash; 요약만 읽습니다.</p>
+    </div>
+
+    <!-- Mermaid #3: Handoff Chain -->
+    <div class="mermaid-wrap fade-in">
+      <pre class="mermaid">
+flowchart LR
+  User["👤 User"]
+  Lead["🎯 Lead"]
+  Brief["📋 briefing.md"]
+  Arch["📐 Architect"]
+  Plan["📄 plan-to-exec.md"]
+  ExFe["⚙️ Executor<br/>🎨 Frontend"]
+  Merge["🔀 Merge"]
+  Test["🧪 Tester<br/><i>blind</i>"]
+  Verify["✅ Verifier<br/><i>blind</i>"]
+  Recon["⚖️ Reconcile"]
+  Simp["🧹 Simplifier"]
+  Write["📝 Writer"]
+  Output["✨ Output"]
+
+  User -->|"intent"| Lead
+  Lead -->|"brainstorm"| Brief
+  Brief -->|"briefing"| Arch
+  Arch -->|"council"| Plan
+  Plan -->|"instructions"| ExFe
+  ExFe -->|"worktrees"| Merge
+  Merge -->|"merged code"| Test
+  Merge -->|"merged code"| Verify
+  Test -->|"test-summary"| Recon
+  Verify -->|"verify-summary"| Recon
+  Recon -->|"PASS"| Simp
+  Simp -->|"cleaned"| Write
+  Write --> Output
+
+  classDef artifact fill:#1a2234,stroke:#3b82f6,color:#60a5fa
+  classDef agent fill:#111827,stroke:#1e3a5f,color:#e8edf5
+
+  class Brief,Plan artifact
+  class User,Lead,Arch,ExFe,Merge,Test,Verify,Recon,Simp,Write,Output agent
+      </pre>
+    </div>
+
+    <!-- Mermaid #4: Consultant Feed Timeline -->
+    <h3>Consultant 피드 타임라인</h3>
+    <div class="mermaid-wrap fade-in">
+      <pre class="mermaid">
+gantt
+  title Consultant Monitoring (Steps 2–11)
+  dateFormat X
+  axisFormat %s
+
+  section Brainstorm
+    Bidirectional with Lead          :active, 0, 2
+
+  section Approval
+    Monitor user decision            :1, 3
+
+  section Council
+    Observe debate rounds            :2, 4
+
+  section Execution
+    Track progress via feed file     :3, 6
+
+  section Testing
+    Monitor blind test results       :5, 7
+
+  section Verification
+    Monitor blind verify results     :6, 8
+
+  section Reconciliation
+    Observe failure classification   :7, 9
+
+  section Simplify
+    Track re-verify outcome          :8, 10
+
+  section Docs
+    Validate doc consistency         :9, 11
+
+  section Cleanup
+    Final session summary            :10, 12
+      </pre>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ BLIND PROTOCOL ═══════════════════ -->
+<section id="blind">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">05 &mdash; 품질</div>
+      <h2>블라인드 분기 프로토콜</h2>
+      <p class="section-desc">결과에 대한 블라인드뿐만 아니라 &mdash; 문제 프레이밍 자체가 분기됩니다. 워크스페이스 수준의 블라인드 크로스 모델 검증.</p>
+    </div>
+    <div class="blind-wall fade-in">
+      <div class="blind-track claude">
+        <h4 style="color:var(--accent-light)">Claude 트랙</h4>
+        <div class="blind-detail">
+          <strong>읽기:</strong> plan-to-exec.md + diff<br>
+          <strong>관점:</strong> 구현 충실도<br>
+          <strong>Worktree:</strong> tester-claude / verifier-claude<br>
+          <strong>타임아웃:</strong> claude_agent (1200s)<br><br>
+          <strong style="color:var(--red)">절대 읽지 않음:</strong> *-cross.md
+        </div>
+      </div>
+      <div class="blind-separator">
+        <span>BLIND WALL</span>
+      </div>
+      <div class="blind-track cross">
+        <h4 style="color:var(--amber)">크로스 모델 트랙</h4>
+        <div class="blind-detail">
+          <strong>읽기:</strong> briefing.md + diff<br>
+          <strong>관점:</strong> 사용자 의도 충실도<br>
+          <strong>Worktree:</strong> tester-cross / verifier-cross<br>
+          <strong>타임아웃:</strong> cross_model (3600s)<br><br>
+          <strong style="color:var(--red)">절대 읽지 않음:</strong> *-claude.md
+        </div>
+      </div>
+    </div>
+    <div style="max-width:700px;margin:24px auto 0;text-align:center;color:var(--text-muted);font-size:0.9rem;line-height:1.8;">
+      <strong style="color:var(--text)">분기 프레이밍이 중요한 이유:</strong> Claude는 상세한 실행 계획을 보고 "계획대로 만들었는가?"를 확인합니다. 크로스 모델은 원래의 사용자 브리핑을 보고 "사용자가 실제로 원하는 것을 만들었는가?"를 확인합니다. 이를 통해 <em>계획에는 충실하지만 사용자에게는 불충실한</em> 구현을 포착합니다.
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ WORKTREES ═══════════════════ -->
+<section id="worktrees">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">06 &mdash; 격리</div>
+      <h2>Worktree 라이프사이클</h2>
+      <p class="section-desc">모든 병렬 에이전트는 자체 git worktree를 사용합니다. 공유 상태 없음, index.lock 충돌 없음, 진정한 파일시스템 격리.</p>
+    </div>
+
+    <!-- Mermaid #6: Worktree Lifecycle -->
+    <div class="mermaid-wrap fade-in">
+      <pre class="mermaid">
+gantt
+  title Worktree Lifecycle per Pipeline Run
+  dateFormat X
+  axisFormat Step %s
+
+  section Executor
+    Create worktree     :e1, 4, 5
+    Work in worktree    :e2, 5, 6
+    Merge to main       :crit, e3, 6, 7
+
+  section Frontend
+    Create worktree     :f1, 4, 5
+    Work in worktree    :f2, 5, 6
+    Merge to main       :crit, f3, 6, 7
+
+  section Tester-Claude
+    Create worktree     :tc1, 6, 7
+    Run tests           :tc2, 7, 8
+    Cleanup             :tc3, 8, 9
+
+  section Tester-Cross
+    Create worktree     :tx1, 6, 7
+    Run tests           :tx2, 7, 8
+    Cleanup             :tx3, 8, 9
+
+  section Verifier-Claude
+    Create worktree     :vc1, 7, 8
+    Verify              :vc2, 8, 9
+    Cleanup             :vc3, 9, 10
+
+  section Verifier-Cross
+    Create worktree     :vx1, 7, 8
+    Verify              :vx2, 8, 9
+    Cleanup             :vx3, 9, 10
+      </pre>
+    </div>
+
+    <div class="code-block fade-in"><span class="comment">Step 4</span>  HEAD에서 executor + frontend worktree 생성
+        <span class="function">git worktree add</span> .bmb/worktrees/executor bmb-executor-{SESSION}
+        <span class="function">git worktree add</span> .bmb/worktrees/frontend bmb-frontend-{SESSION}
+
+<span class="comment">Step 5</span>  에이전트가 <span class="keyword">격리된</span> worktree에서 작업 (충돌 가능성 제로)
+
+<span class="comment">Step 5.5</span> Worktree &rarr; main 병합
+        worktree에서 커밋 &rarr; merge --no-edit &rarr; worktree 제거
+        충돌? &rarr; <span class="string">bmb_learn MISTAKE</span> + 사용자에게 에스컬레이션
+
+<span class="comment">Step 6</span>  병합된 HEAD에서 <span class="keyword">2</span>개 tester worktree 생성
+        tester-claude + tester-cross
+
+<span class="comment">Step 7</span>  병합된 HEAD에서 <span class="keyword">2</span>개 verifier worktree 생성
+        verifier-claude + verifier-cross
+
+<span class="comment">Step 8+</span> 남은 모든 worktree 제거
+        <span class="function">git worktree list</span> | grep '.bmb/worktrees' | xargs -I{} git worktree remove {}</div>
+  </div>
+</section>
+
+<!-- ═══════════════════ CROSS-MODEL ═══════════════════ -->
+<section id="crossmodel">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">07 &mdash; 멀티 모델</div>
+      <h2>크로스 모델 프로토콜</h2>
+      <p class="section-desc">Council 토론은 Claude &harr; Codex/Gemini 파일 교환을 사용합니다. 프로필 기반 권한으로 필요한 곳에서 읽기 전용을 유지합니다.</p>
+    </div>
+
+    <!-- Mermaid #5: Council Sequence Diagram -->
+    <div class="mermaid-wrap fade-in">
+      <pre class="mermaid">
+sequenceDiagram
+  participant A as Architect<br/>(Claude Opus)
+  participant F as Council Files<br/>(.bmb/council/)
+  participant X as Cross-Model<br/>(Codex / Gemini)
+
+  Note over A,X: Round 1 — Initial Proposals
+  A->>F: Write claude-proposal.md
+  X->>F: Write cross-proposal.md
+
+  Note over A,X: Round 2 — Critique
+  A->>F: Read cross-proposal.md
+  A->>F: Write claude-critique.md
+  X->>F: Read claude-proposal.md
+  X->>F: Write cross-critique.md
+
+  Note over A,X: Round 3 — Synthesis (optional)
+  A->>F: Read cross-critique.md
+  A->>F: Write claude-synthesis.md
+  X->>F: Read claude-critique.md
+  X->>F: Write cross-synthesis.md
+
+  Note over A,X: Round 4 — Final Decision
+  A->>F: Read all files
+  A->>F: Write plan-to-exec.md ✅
+
+  Note right of X: Cross-Model uses<br/>--profile read-only
+      </pre>
+    </div>
+
+    <div class="card-grid fade-in" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon cross">R</div>
+          <div><div class="card-title">읽기 전용 프로필</div></div>
+        </div>
+        <div class="card-desc"><code>council</code>과 <code>verify</code> 프로필: 크로스 모델은 코드를 읽고 <code>.bmb/</code>에만 쓸 수 있습니다. 프로덕션 쓰기 불가.</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon cross">W</div>
+          <div><div class="card-title">쓰기 프로필</div></div>
+        </div>
+        <div class="card-desc"><code>test</code>와 <code>exec-assist</code> 프로필: 크로스 모델은 worktree 범위 내에서 테스트 및 헬퍼 코드를 작성할 수 있습니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon cross">T</div>
+          <div><div class="card-title">트랙별 타임아웃</div></div>
+        </div>
+        <div class="card-desc">Claude: 기본 1200s. 크로스 모델: 기본 3600s. <code>bmb-config.sh</code>로 설정 가능. 독립적인 데드라인 추적.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ COMPRESSION ═══════════════════ -->
+<section id="compression">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">08 &mdash; 컨텍스트</div>
+      <h2>3-레이어 컨텍스트 압축</h2>
+      <p class="section-desc">Lead의 컨텍스트 윈도우는 공유 자원입니다. 세 개의 레이어가 50% 용량을 초과하지 않도록 보장합니다.</p>
+    </div>
+    <div class="tier-diagram fade-in">
+      <div class="tier">
+        <div class="tier-num">L1</div>
+        <div class="tier-content">
+          <div class="tier-title">읽기 시점 압축</div>
+          <div class="tier-desc">Lead는 <code>.compressed/*.summary.md</code>만 읽습니다 (최대 300 토큰). 원본 아티팩트는 분쟁 시에만 접근합니다.</div>
+        </div>
+      </div>
+      <div style="text-align:center;color:var(--text-dim);font-size:1.5rem;">&darr;</div>
+      <div class="tier">
+        <div class="tier-num">L2</div>
+        <div class="tier-content">
+          <div class="tier-title">쓰기 시점 캐싱</div>
+          <div class="tier-desc">에이전트는 50줄을 초과하는 도구 출력을 <code>.tool-cache/</code>에 캐시합니다. 요약만 유지: "Modified: auth.ts (47 lines)", "PASS: 12, FAIL: 0".</div>
+        </div>
+      </div>
+      <div style="text-align:center;color:var(--text-dim);font-size:1.5rem;">&darr;</div>
+      <div class="tier">
+        <div class="tier-num">L3</div>
+        <div class="tier-content">
+          <div class="tier-title">참조 시점 인덱싱</div>
+          <div class="tier-desc">FTS5 데이터베이스가 과거 Council 결정과 핸드오프를 인덱싱합니다. 새 작업 시작 전에 과거 결정을 재활용하기 위해 쿼리됩니다.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ AUTO-LEARNING ═══════════════════ -->
+<section id="learning">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">09 &mdash; 지능</div>
+      <h2>자동 학습 시스템</h2>
+      <p class="section-desc">실수, 수정, 성공이 자동으로 기록됩니다. 과거의 함정이 모든 프로젝트의 향후 세션에 주입됩니다.</p>
+    </div>
+    <div class="tier-diagram fade-in">
+      <div class="tier">
+        <div class="tier-num">T1</div>
+        <div class="tier-content">
+          <div class="tier-title">프로젝트 로컬</div>
+          <div class="tier-desc"><code>.bmb/learnings.md</code> &mdash; 학습 항목 한 줄, 시간순 추가. 이 프로젝트의 Step 1에서 로드됩니다.</div>
+        </div>
+        <div class="tier-arrow">&darr;</div>
+      </div>
+      <div style="text-align:center;color:var(--text-dim);font-size:1.5rem;">&darr;</div>
+      <div class="tier">
+        <div class="tier-num">T2</div>
+        <div class="tier-content">
+          <div class="tier-title">글로벌 크로스 프로젝트</div>
+          <div class="tier-desc"><code>~/.claude/bmb-system/learnings-global.md</code> &mdash; 동일 형식 + [project_name] 태그. 모든 BMB 프로젝트에서 공유됩니다.</div>
+        </div>
+        <div class="tier-arrow">&darr;</div>
+      </div>
+      <div style="text-align:center;color:var(--text-dim);font-size:1.5rem;">&darr;</div>
+      <div class="tier">
+        <div class="tier-num">T3</div>
+        <div class="tier-content">
+          <div class="tier-title">CLAUDE.md 프로모션</div>
+          <div class="tier-desc">재발 &ge;2 &rarr; 사용자에게 제안 &rarr; 영구 규칙. 자동 편집 없음. 사용자가 항상 승인합니다.</div>
+        </div>
+      </div>
+    </div>
+    <div class="code-block fade-in" style="margin-top:32px"><span class="comment"># learnings.md 항목 예시</span>
+<span class="string">[2026-03-10 14:32]</span> MISTAKE (step 8): Missing input validation &rarr; Always validate at API boundary
+<span class="string">[2026-03-10 15:01]</span> CORRECTION (step 3): User changed auth to OAuth &rarr; Confirm auth strategy in brainstorm
+<span class="string">[2026-03-10 16:45]</span> PRAISE (step 11): Pipeline completed successfully &rarr; Current approach works
+
+<span class="comment"># 컨텍스트 비용: ~150 토큰 (5줄 &times; ~30 토큰). 무시할 수준.</span></div>
+  </div>
+</section>
+
+<!-- ═══════════════════ RECIPES ═══════════════════ -->
+<section id="recipes">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">10 &mdash; 레시피</div>
+      <h2>레시피 매트릭스</h2>
+      <p class="section-desc">6가지 작업 유형, 각각 최적화된 파이프라인 경로를 가집니다. 레시피에 관계없이 Consultant는 항상 존재합니다.</p>
+    </div>
+    <div class="recipe-grid fade-in">
+      <!-- Feature -->
+      <div class="recipe-card feature">
+        <div class="recipe-icon">&#9889;</div>
+        <div class="recipe-name">Feature</div>
+        <div class="recipe-chain">
+          Brainstorm <span class="arrow">&rarr;</span> Architect <span class="arrow">&rarr;</span> Exec+Frontend <span class="arrow">&rarr;</span> Test <span class="arrow">&rarr;</span> Verify <span class="arrow">&rarr;</span> Simplify <span class="arrow">&rarr;</span> Write
+        </div>
+        <div class="recipe-flags">
+          <span class="tag purple">council</span>
+          <span class="tag amber">cross: test+verify</span>
+          <span class="tag">frontend: 감지 시</span>
+        </div>
+      </div>
+      <!-- Bugfix -->
+      <div class="recipe-card bugfix">
+        <div class="recipe-icon">&#128295;</div>
+        <div class="recipe-name">Bugfix</div>
+        <div class="recipe-chain">
+          Brainstorm <span class="arrow">&rarr;</span> Exec <span class="arrow">&rarr;</span> Test <span class="arrow">&rarr;</span> Verify <span class="arrow">&rarr;</span> Write
+        </div>
+        <div class="recipe-flags">
+          <span class="tag" style="opacity:0.4">council 없음</span>
+          <span class="tag amber">cross: test+verify</span>
+          <span class="tag" style="opacity:0.4">frontend 없음</span>
+        </div>
+      </div>
+      <!-- Refactor -->
+      <div class="recipe-card refactor">
+        <div class="recipe-icon">&#9851;&#65039;</div>
+        <div class="recipe-name">Refactor</div>
+        <div class="recipe-chain">
+          Brainstorm <span class="arrow">&rarr;</span> Architect <span class="arrow">&rarr;</span> Exec+Frontend <span class="arrow">&rarr;</span> Verify <span class="arrow">&rarr;</span> Simplify <span class="arrow">&rarr;</span> Write
+        </div>
+        <div class="recipe-flags">
+          <span class="tag purple">council</span>
+          <span class="tag amber">cross: verify만</span>
+          <span class="tag">frontend: 감지 시</span>
+        </div>
+      </div>
+      <!-- Research -->
+      <div class="recipe-card research">
+        <div class="recipe-icon">&#128269;</div>
+        <div class="recipe-name">Research</div>
+        <div class="recipe-chain">
+          Brainstorm만
+        </div>
+        <div class="recipe-flags">
+          <span class="tag" style="opacity:0.4">council: 선택적</span>
+          <span class="tag" style="opacity:0.4">크로스 모델 없음</span>
+          <span class="tag" style="opacity:0.4">frontend 없음</span>
+        </div>
+      </div>
+      <!-- Review -->
+      <div class="recipe-card review-r">
+        <div class="recipe-icon">&#128270;</div>
+        <div class="recipe-name">Review</div>
+        <div class="recipe-chain">
+          Brainstorm <span class="arrow">&rarr;</span> Verifier <span class="arrow">(리뷰 모드)</span>
+        </div>
+        <div class="recipe-flags">
+          <span class="tag" style="opacity:0.4">council 없음</span>
+          <span class="tag amber">cross: verify만</span>
+          <span class="tag" style="opacity:0.4">frontend 없음</span>
+        </div>
+      </div>
+      <!-- Infra -->
+      <div class="recipe-card infra">
+        <div class="recipe-icon">&#9881;&#65039;</div>
+        <div class="recipe-name">Infra</div>
+        <div class="recipe-chain">
+          Brainstorm <span class="arrow">&rarr;</span> Exec <span class="arrow">&rarr;</span> Verify <span class="arrow">&rarr;</span> Write
+        </div>
+        <div class="recipe-flags">
+          <span class="tag" style="opacity:0.4">council 없음</span>
+          <span class="tag amber">cross: verify만</span>
+          <span class="tag" style="opacity:0.4">frontend 없음</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SKILLS ═══════════════════ -->
+<section id="skills">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">11 &mdash; 명령어</div>
+      <h2>스킬 명령어</h2>
+      <p class="section-desc">4개의 슬래시 명령어가 다양한 규모에서 BMB 기능을 제공합니다 &mdash; 전체 파이프라인부터 집중 브레인스토밍까지.</p>
+    </div>
+
+    <div class="card-grid fade-in">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon lead">/B</div>
+          <div>
+            <div class="card-title">/BMB</div>
+            <div class="card-model">전체 파이프라인</div>
+          </div>
+        </div>
+        <div class="card-desc">11.5단계 전체 A-to-Z 파이프라인. 크로스 모델 Council, 블라인드 검증, 애널리틱스, 간소화, 세션 연속성. 모든 중요한 기능 또는 버그 수정에 사용.</div>
+        <div class="card-tags">
+          <span class="tag">11.5단계</span>
+          <span class="tag purple">크로스 모델</span>
+          <span class="tag green">worktree</span>
+          <span class="tag amber">블라인드 검증</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon new">/Bb</div>
+          <div>
+            <div class="card-title">/BMB-brainstorm</div>
+            <div class="card-model">아이디어 도출</div>
+          </div>
+        </div>
+        <div class="card-desc">Lead + Consultant 양방향 브레인스토밍과 대화 로깅. 코드 작성 전 의도, 요구사항, 설계를 탐색합니다.</div>
+        <div class="card-tags">
+          <span class="tag">5단계</span>
+          <span class="tag cyan">consultant</span>
+          <span class="tag">코드 없음</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">/Br</div>
+          <div>
+            <div class="card-title">/BMB-refactoring</div>
+            <div class="card-model">코드 품질</div>
+          </div>
+        </div>
+        <div class="card-desc">크로스 모델 리뷰를 통한 병렬 분석, worktree 격리 실행, 리뷰 사이클, 병합. 기능 변경 없이 기존 코드 개선에 집중합니다.</div>
+        <div class="card-tags">
+          <span class="tag">6단계</span>
+          <span class="tag purple">크로스 모델</span>
+          <span class="tag green">worktree</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon sonnet">/Bs</div>
+          <div>
+            <div class="card-title">/BMB-setup</div>
+            <div class="card-model">설정</div>
+          </div>
+        </div>
+        <div class="card-desc">일회성 프로젝트 설정: 사전 조건 확인, 설정 생성, gitignore 규칙, 확인. 첫 파이프라인 사용 전 프로젝트당 한 번 실행.</div>
+        <div class="card-tags">
+          <span class="tag">5단계</span>
+          <span class="tag">사전 조건</span>
+        </div>
+      </div>
+    </div>
+
+    <h3>스킬 관계도</h3>
+    <div class="mermaid-wrap fade-in">
+      <pre class="mermaid">
+flowchart LR
+    Setup["/BMB-setup\n⚙️ Config"]
+    BMB["/BMB\n🔧 Full Pipeline"]
+    Brainstorm["/BMB-brainstorm\n💡 Ideation"]
+    Refactoring["/BMB-refactoring\n🔄 Code Quality"]
+
+    Setup -->|"prerequisite"| BMB
+    Setup -->|"prerequisite"| Brainstorm
+    Setup -->|"prerequisite"| Refactoring
+    Brainstorm -.->|"feeds into"| BMB
+    Refactoring -.->|"standalone"| BMB
+
+    style Setup fill:#111827,stroke:#22c55e,color:#e8edf5
+    style BMB fill:#111827,stroke:#3b82f6,color:#e8edf5,stroke-width:3px
+    style Brainstorm fill:#111827,stroke:#22d3ee,color:#e8edf5
+    style Refactoring fill:#111827,stroke:#a78bfa,color:#e8edf5
+      </pre>
+    </div>
+
+    <h3>단계별 커버리지 비교</h3>
+    <div class="table-wrap fade-in">
+      <table>
+        <thead>
+          <tr>
+            <th>단계</th>
+            <th>/BMB</th>
+            <th>/BMB-brainstorm</th>
+            <th>/BMB-refactoring</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>설정 / 구성</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td></tr>
+          <tr><td>Consultant 세션</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td></tr>
+          <tr><td>브레인스토밍 / 분석</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--green)">&#10003; 병렬</td></tr>
+          <tr><td>Council 토론</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td><td style="color:var(--green)">&#10003; 종합</td></tr>
+          <tr><td>아키텍처 계획</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td><td style="color:var(--text-dim)">&mdash;</td></tr>
+          <tr><td>실행 (Worktree)</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td><td style="color:var(--green)">&#10003;</td></tr>
+          <tr><td>테스팅</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td><td style="color:var(--text-dim)">&mdash;</td></tr>
+          <tr><td>검증 (블라인드)</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td><td style="color:var(--green)">&#10003; 리뷰</td></tr>
+          <tr><td>수정 사이클</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td><td style="color:var(--green)">&#10003;</td></tr>
+          <tr><td>간소화</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td><td style="color:var(--text-dim)">&mdash;</td></tr>
+          <tr><td>병합 / 정리</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--green)">&#10003; 요약</td><td style="color:var(--green)">&#10003;</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ DEGRADATION ═══════════════════ -->
+<section id="degradation">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">12 &mdash; 복원력</div>
+      <h2>우아한 성능 저하</h2>
+      <p class="section-desc">파이프라인은 절대 차단되지 않습니다. 모든 실패 모드에는 정의된 폴백이 있습니다.</p>
+    </div>
+    <div class="table-wrap fade-in">
+      <table>
+        <thead><tr><th>시나리오</th><th>동작</th></tr></thead>
+        <tbody>
+          <tr><td>크로스 모델 사용 불가 (council)</td><td>단독 설계 (Claude 전용), 세션 로그에 기록</td></tr>
+          <tr><td>크로스 모델 사용 불가 (테스팅)</td><td>Claude 전용 테스트 결과, 조정에 기록</td></tr>
+          <tr><td>크로스 모델 사용 불가 (검증)</td><td>Claude 전용 검증, 조정에 기록</td></tr>
+          <tr><td>Claude 테스터 타임아웃</td><td>타임아웃 로깅, 크로스 모델 결과로 계속</td></tr>
+          <tr><td>크로스 모델 타임아웃</td><td>Claude 전용 결과로 진행</td></tr>
+          <tr><td>병합 충돌</td><td><code>bmb_learn MISTAKE</code> + 사용자에게 에스컬레이션</td></tr>
+          <tr><td>Simplifier가 테스트 깨뜨림</td><td><code>bmb_learn MISTAKE</code> + 되돌리기 + 원본으로 진행</td></tr>
+          <tr><td>Telegram 환경변수 미설정</td><td>알림 조용히 건너뜀</td></tr>
+          <tr><td>knowledge.db 없음</td><td>인덱싱/검색 건너뜀</td></tr>
+          <tr><td>프론트엔드 미감지</td><td>Frontend 에이전트 건너뜀, Executor만 사용</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ DIRECTORY ═══════════════════ -->
+<section id="directory">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">13 &mdash; 구조</div>
+      <h2>디렉토리 레이아웃</h2>
+      <p class="section-desc"><code>.bmb/</code> 디렉토리는 모든 파이프라인 아티팩트의 단일 진실 소스입니다.</p>
+    </div>
+    <div class="dir-tree fade-in">
+<span class="folder">.bmb/</span>
+├── <span class="folder">handoffs/</span>              <span class="desc">── 에이전트 간 아티팩트</span>
+│   ├── <span class="file">briefing.md</span>          <span class="desc">── Lead의 브레인스토밍 결과</span>
+│   ├── <span class="file">plan-to-exec.md</span>      <span class="desc">── Architect의 실행 계획</span>
+│   ├── <span class="file">test-claude.md</span>       <span class="desc">── Claude 테스터 결과</span>
+│   ├── <span class="file">test-cross.md</span>        <span class="desc">── 크로스 모델 테스터 결과</span>
+│   ├── <span class="file">verify-claude.md</span>     <span class="desc">── Claude 검증기 결과</span>
+│   └── <span class="file">verify-cross.md</span>      <span class="desc">── 크로스 모델 검증기 결과</span>
+│   └── <span class="folder">.compressed/</span>     <span class="desc">── Lead용 L1 요약</span>
+│       ├── <span class="file">briefing.summary.md</span>
+│       ├── <span class="file">test-result-claude.summary.md</span>
+│       └── <span class="file">verify-result-claude.summary.md</span>
+├── <span class="folder">councils/</span>              <span class="desc">── 크로스 모델 토론 파일</span>
+│   ├── <span class="file">LEGEND.md</span>            <span class="desc">── 모든 과거 토론 인덱스</span>
+│   └── <span class="folder">{topic}/</span>
+│       ├── <span class="file">round-01-claude.md</span>
+│       ├── <span class="file">round-01-cross.md</span>
+│       └── <span class="file">CONSENSUS.md</span>
+├── <span class="folder">worktrees/</span>             <span class="desc">── Git worktree 마운트 포인트</span>
+│   ├── <span class="folder">executor/</span>
+│   ├── <span class="folder">frontend/</span>
+│   ├── <span class="folder">tester-claude/</span>
+│   ├── <span class="folder">tester-cross/</span>
+│   ├── <span class="folder">verifier-claude/</span>
+│   └── <span class="folder">verifier-cross/</span>
+├── <span class="folder">sessions/</span>              <span class="desc">── 세션별 상태</span>
+│   └── <span class="folder">{session_id}/</span>
+│       ├── <span class="file">session-prep.md</span>  <span class="desc">── 다음 세션 연속성</span>
+│       └── <span class="file">conversation.log</span> <span class="desc">── Consultant 피드</span>
+├── <span class="folder">.tool-cache/</span>           <span class="desc">── L2 쓰기 시점 캐시</span>
+├── <span class="file">config.json</span>            <span class="desc">── 프로젝트 설정</span>
+├── <span class="file">learnings.md</span>           <span class="desc">── T1 프로젝트 로컬 학습</span>
+├── <span class="file">session-log.md</span>         <span class="desc">── 현재 세션 이벤트 로그</span>
+├── <span class="file">consultant-feed.md</span>     <span class="desc">── Lead → Consultant 피드</span>
+└── <span class="file">knowledge.db</span>           <span class="desc">── L3 FTS5 참조 인덱스</span>
+
+<span class="folder">~/.claude/bmb-system/</span>    <span class="desc">── 글로벌 BMB 설치</span>
+├── <span class="folder">scripts/</span>
+│   ├── <span class="file">cross-model-run.sh</span> <span class="desc">── 크로스 모델 호출</span>
+│   ├── <span class="file">bmb-learn.sh</span>       <span class="desc">── 공유 학습 함수</span>
+│   ├── <span class="file">knowledge-index.sh</span> <span class="desc">── FTS5 인덱서</span>
+│   └── <span class="file">knowledge-search.sh</span><span class="desc">── FTS5 검색</span>
+├── <span class="folder">config/</span>
+│   └── <span class="file">defaults.json</span>      <span class="desc">── 기본 설정</span>
+└── <span class="file">learnings-global.md</span>    <span class="desc">── T2 크로스 프로젝트 학습</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ FOOTER ═══════════════════ -->
+<footer>
+  <div class="logo-text">BMB</div>
+  <p>Worktree 격리 크로스 모델 에이전트 오케스트레이션<br>블라인드 분기 검증 및 자동 학습 시스템.</p>
+  <div style="margin-top:20px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">
+    <a href="index.html" style="color:var(--text-dim);text-decoration:none;font-size:0.82rem;font-weight:500;">English</a>
+    <a href="index.ko.html" style="color:var(--accent-light);text-decoration:none;font-size:0.82rem;font-weight:500;">한국어</a>
+    <a href="index.ja.html" style="color:var(--text-dim);text-decoration:none;font-size:0.82rem;font-weight:500;">日本語</a>
+    <a href="index.zh-TW.html" style="color:var(--text-dim);text-decoration:none;font-size:0.82rem;font-weight:500;">繁體中文</a>
+  </div>
+  <p style="margin-top:20px;color:var(--text-dim);font-size:0.78rem;">Be-my-butler &mdash; Claude Code를 위해 제작</p>
+</footer>
+
+<script src="bmb-shared.js"></script>
+</body>
+</html>

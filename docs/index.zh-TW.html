@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BMB — Be My Butler | Claude Code 多代理編排系統</title>
+<meta name="description" content="Claude Code 的 11.5 步驟、9 代理編排管線，具備跨模型盲審驗證、Council 辯論、分析和 Worktree 隔離。">
+<meta property="og:title" content="BMB — Be My Butler">
+<meta property="og:description" content="9 代理、11.5 步驟 Claude Code 編排系統，具備跨模型盲審驗證與分析">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://raw.githubusercontent.com/project820/be-my-butler/main/assets/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="BMB — Be My Butler">
+<meta name="twitter:description" content="9 代理、11.5 步驟 Claude Code 編排系統，具備跨模型盲審驗證與分析">
+<link rel="alternate" hreflang="en" href="https://project820.github.io/be-my-butler/">
+<link rel="alternate" hreflang="ko" href="https://project820.github.io/be-my-butler/index.ko.html">
+<link rel="alternate" hreflang="ja" href="https://project820.github.io/be-my-butler/index.ja.html">
+<link rel="alternate" hreflang="zh-Hant" href="https://project820.github.io/be-my-butler/index.zh-TW.html">
+<link rel="alternate" hreflang="x-default" href="https://project820.github.io/be-my-butler/">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="bmb-shared.css">
+</head>
+<body>
+
+<!-- ─── Desktop Controls ──────────────────── -->
+<div class="lang-switcher">
+  <button class="lang-btn">&#127760; 中文</button>
+  <div class="lang-dropdown">
+    <a href="index.html">English</a>
+    <a href="index.ko.html">한국어</a>
+    <a href="index.ja.html">日本語</a>
+    <a href="index.zh-TW.html" class="active">繁體中文</a>
+  </div>
+</div>
+<button class="slide-toggle" onclick="toggleSlideMode()">投影模式</button>
+<div class="slide-indicator"></div>
+<div class="slide-hint">← → 或 J/K &middot; ESC 退出</div>
+<div class="slide-dots"></div>
+
+<!-- ─── Mobile Hamburger + Drawer ─────────── -->
+<button class="hamburger" aria-label="Menu">
+  <span></span><span></span><span></span>
+</button>
+<div class="drawer-overlay"></div>
+<div class="drawer">
+  <nav class="drawer-nav">
+    <a href="#principles">設計原則</a>
+    <a href="#agents">代理</a>
+    <a href="#pipeline">管線</a>
+    <a href="#dataflow">資料流</a>
+    <a href="#blind">盲審協議</a>
+    <a href="#worktrees">Worktree</a>
+    <a href="#crossmodel">跨模型</a>
+    <a href="#compression">壓縮</a>
+    <a href="#learning">自動學習</a>
+    <a href="#recipes">配方</a>
+    <a href="#skills">技能</a>
+    <a href="#degradation">優雅降級</a>
+    <a href="#directory">目錄結構</a>
+    <hr style="border:0;border-top:1px solid var(--border);margin:8px 0;">
+    <a href="m.zh-TW.html">📱 行動版摘要</a>
+  </nav>
+  <div class="drawer-lang">
+    <div class="drawer-lang-title">語言</div>
+    <a href="index.html">English</a>
+    <a href="index.ko.html">한국어</a>
+    <a href="index.ja.html">日本語</a>
+    <a href="index.zh-TW.html" class="active">繁體中文</a>
+  </div>
+</div>
+
+<!-- ═══════════════════ HERO ═══════════════════ -->
+<header class="hero">
+  <div class="hero-content">
+    <div class="hero-badge">
+      <span class="pulse"></span>
+      多代理編排系統
+    </div>
+    <div style="display:inline-flex;align-items:center;gap:8px;margin-bottom:16px;">
+      <span style="display:inline-block;padding:4px 14px;border-radius:20px;background:var(--gradient-blue);color:#fff;font-family:'JetBrains Mono',monospace;font-size:0.8rem;font-weight:600;">v0.2.0</span>
+      <a href="https://github.com/project820/be-my-butler/blob/main/WHATS-NEW-0.2.md" style="display:inline-flex;align-items:center;gap:4px;padding:4px 14px;border-radius:20px;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);color:var(--green);font-size:0.8rem;font-weight:600;text-decoration:none;transition:all 0.2s;" onmouseover="this.style.background='rgba(34,197,94,0.2)'" onmouseout="this.style.background='rgba(34,197,94,0.12)'">v0.2 新功能</a>
+    </div>
+    <h1>
+      <span class="gradient-text">BMB</span><br>
+      Be-my-butler
+    </h1>
+    <p class="subtitle">
+      Worktree 隔離的跨模型代理編排<br>
+      具備盲審分歧驗證與自動學習
+    </p>
+    <div style="display:flex;gap:12px;justify-content:center;margin-bottom:32px;flex-wrap:wrap;">
+      <a href="https://github.com/project820/be-my-butler" style="display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:10px;background:var(--gradient-blue);color:#fff;text-decoration:none;font-weight:600;font-size:0.95rem;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">GitHub 儲存庫</a>
+      <a href="https://github.com/project820/be-my-butler#quickstart" style="display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:10px;background:transparent;color:var(--accent-light);text-decoration:none;font-weight:600;font-size:0.95rem;border:1px solid var(--border);transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform=''">快速開始</a>
+    </div>
+    <div class="hero-lang-bar" style="display:flex;gap:8px;justify-content:center;margin-bottom:32px;flex-wrap:wrap;">
+      <span style="color:var(--text-dim);font-size:0.82rem;align-self:center;margin-right:4px;">&#127760;</span>
+      <a href="index.html" style="padding:5px 14px;border-radius:16px;font-size:0.8rem;font-weight:600;text-decoration:none;color:var(--text-muted);background:transparent;border:1px solid var(--border);transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent-light)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">English</a>
+      <a href="index.ko.html" style="padding:5px 14px;border-radius:16px;font-size:0.8rem;font-weight:600;text-decoration:none;color:var(--text-muted);background:transparent;border:1px solid var(--border);transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent-light)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">한국어</a>
+      <a href="index.ja.html" style="padding:5px 14px;border-radius:16px;font-size:0.8rem;font-weight:600;text-decoration:none;color:var(--text-muted);background:transparent;border:1px solid var(--border);transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent-light)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">日本語</a>
+      <a href="index.zh-TW.html" style="padding:5px 14px;border-radius:16px;font-size:0.8rem;font-weight:600;text-decoration:none;color:#fff;background:var(--accent);border:1px solid var(--accent);">繁體中文</a>
+    </div>
+    <div style="margin-bottom:36px;">
+      <code style="font-family:'JetBrains Mono',monospace;font-size:0.85rem;padding:10px 24px;border-radius:8px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.15);color:var(--accent-light);">curl -fsSL https://raw.githubusercontent.com/project820/be-my-butler/main/install.sh | bash</code>
+    </div>
+    <div class="hero-stats">
+      <div class="stat">
+        <div class="stat-value">11.5</div>
+        <div class="stat-label">管線步驟</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">9</div>
+        <div class="stat-label">代理</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">3</div>
+        <div class="stat-label">壓縮層</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">4</div>
+        <div class="stat-label">技能</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">6</div>
+        <div class="stat-label">配方</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════ NAV ════════════════════ -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="#principles">設計原則</a>
+    <a href="#agents">代理</a>
+    <a href="#pipeline">管線</a>
+    <a href="#dataflow">資料流</a>
+    <a href="#blind">盲審協議</a>
+    <a href="#worktrees">Worktree</a>
+    <a href="#crossmodel">跨模型</a>
+    <a href="#compression">壓縮</a>
+    <a href="#learning">自動學習</a>
+    <a href="#recipes">配方</a>
+    <a href="#skills">技能</a>
+    <a href="#degradation">優雅降級</a>
+    <a href="#directory">目錄結構</a>
+  </div>
+</nav>
+
+<!-- ═══════════════════ PRINCIPLES ═══════════════════ -->
+<section id="principles">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">01 &mdash; 基礎</div>
+      <h2>核心設計原則</h2>
+      <p class="section-desc">每個架構決策都可追溯至這些不可妥協的原則。</p>
+    </div>
+    <div class="card-grid card-grid-3 fade-in">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon lead">W</div>
+          <div><div class="card-title">Worktree 隔離</div></div>
+        </div>
+        <div class="card-desc">每個可寫入的平行代理都擁有獨立的 <code>git worktree</code>。無共享狀態、無 index.lock 衝突，實現真正的檔案系統級隔離。</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon cross">B</div>
+          <div><div class="card-title">盲審分歧框架</div></div>
+        </div>
+        <div class="card-desc">跨模型追蹤讀取<em>不同的</em>上下文文件。不僅在結果上盲審 &mdash; 在問題框架本身就存在分歧。</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">L</div>
+          <div><div class="card-title">Lead 作為輕量編排者</div></div>
+        </div>
+        <div class="card-desc">Lead 僅讀取 <code>.bmb/</code> 和 <code>CLAUDE.md</code>，絕不碰程式碼。上下文保護至關重要 &mdash; Lead 是瓶頸。</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon sonnet">C</div>
+          <div><div class="card-title">雙向 Consultant</div></div>
+        </div>
+        <div class="card-desc">SendMessage 實現 Consultant &rarr; Lead 的回饋。使用者對話中的業務規則能真正傳達到管線中。</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon new">A</div>
+          <div><div class="card-title">自動學習</div></div>
+        </div>
+        <div class="card-desc">錯誤、修正和成功都會自動記錄。過去的陷阱會注入未來的 session 中。三層架構：本地 &rarr; 全域 &rarr; CLAUDE.md。</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon lead">S</div>
+          <div><div class="card-title">Session 連續性</div></div>
+        </div>
+        <div class="card-desc"><code>session-prep.md</code> 為下一個 session 捕捉狀態。跨 session 上下文得以保留，任何工作都不會真正遺失。</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">3</div>
+          <div><div class="card-title">三層壓縮</div></div>
+        </div>
+        <div class="card-desc">讀取時摘要、寫入時快取、引用時 FTS5。Lead 上下文在整個管線中保持低於 50%。</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon cross">P</div>
+          <div><div class="card-title">基於設定檔的權限</div></div>
+        </div>
+        <div class="card-desc">跨模型調用使用角色專屬設定檔：<code>council</code> 和 <code>verify</code> 為唯讀模式。不再到處使用 <code>--full-auto</code>。</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon sonnet">G</div>
+          <div><div class="card-title">優雅降級</div></div>
+        </div>
+        <div class="card-desc">跨模型不可用？管線以純 Claude 模式繼續。Simplifier 破壞測試？還原後繼續。絕不阻塞。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ AGENTS ═══════════════════ -->
+<section id="agents">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">02 &mdash; 團隊</div>
+      <h2>代理名冊</h2>
+      <p class="section-desc">9 個專業代理，各有明確角色和嚴格邊界。從腦力激盪到生產就緒的程式碼。</p>
+    </div>
+
+    <!-- Mermaid #1: System Architecture -->
+    <div class="mermaid-wrap fade-in">
+      <pre class="mermaid">
+graph TB
+  User["👤 User"]
+  Lead["🎯 Lead<br/><i>Opus · Orchestrator</i>"]
+  Consultant["💬 Consultant<br/><i>Sonnet · Persistent</i>"]
+  Architect["📐 Architect<br/><i>Opus · Council</i>"]
+  Executor["⚙️ Executor<br/><i>Opus · Backend</i>"]
+  Frontend["🎨 Frontend<br/><i>Opus · UI</i>"]
+  Tester["🧪 Tester<br/><i>Opus · Blind</i>"]
+  Verifier["✅ Verifier<br/><i>Opus · Blind</i>"]
+  Simplifier["🧹 Simplifier<br/><i>Opus · Cleanup</i>"]
+  Writer["📝 Writer<br/><i>Sonnet · Docs</i>"]
+  BMB[".bmb/<br/><i>Handoffs · Artifacts</i>"]
+  CrossModel["🌐 Cross-Model<br/><i>Codex / Gemini</i>"]
+
+  User <-->|"brainstorm<br/>approve"| Lead
+  Lead <-->|"SendMessage<br/>bidirectional"| Consultant
+  Lead -->|"briefing"| Architect
+  Architect <-->|"council<br/>debate"| CrossModel
+  Lead -->|"plan-to-exec"| Executor
+  Lead -->|"plan-to-exec"| Frontend
+  Lead -->|"test request"| Tester
+  Tester -.->|"blind wall"| CrossModel
+  Lead -->|"verify request"| Verifier
+  Verifier -.->|"blind wall"| CrossModel
+  Lead -->|"simplify"| Simplifier
+  Lead -->|"write docs"| Writer
+  Architect -->|"writes"| BMB
+  Executor -->|"writes"| BMB
+  Frontend -->|"writes"| BMB
+  Tester -->|"writes"| BMB
+  Verifier -->|"writes"| BMB
+  Lead -->|"reads only"| BMB
+
+  classDef opus fill:#1a1030,stroke:#7c3aed,stroke-width:2px,color:#a78bfa
+  classDef sonnet fill:#0a2015,stroke:#16a34a,stroke-width:2px,color:#22c55e
+  classDef cross fill:#1a1500,stroke:#d97706,stroke-width:2px,color:#f59e0b
+  classDef user fill:#0a1628,stroke:#3b82f6,stroke-width:2px,color:#60a5fa
+  classDef storage fill:#111827,stroke:#1e3a5f,stroke-width:2px,color:#8494a7
+
+  class Lead,Architect,Executor,Frontend,Tester,Verifier,Simplifier opus
+  class Consultant,Writer sonnet
+  class CrossModel cross
+  class User user
+  class BMB storage
+      </pre>
+    </div>
+
+    <div class="card-grid fade-in">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon lead">L</div>
+          <div><div class="card-title">Lead</div><div class="card-model">Claude Opus &bull; 完整管線</div></div>
+        </div>
+        <div class="card-desc">編排、決策、中繼、腦力激盪。僅讀取 <code>.bmb/</code>，絕不寫入程式碼。輕量指揮者。</div>
+        <div class="card-tags"><span class="tag">編排者</span><span class="tag cyan">內嵌式腦力激盪</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon sonnet">C</div>
+          <div><div class="card-title">Consultant</div><div class="card-model">Claude Sonnet &bull; 步驟 2&ndash;11</div></div>
+        </div>
+        <div class="card-desc">Coordinator 身份：完整的情境感知，零指令權限。雙通道（feed 檔案 + SendMessage）。在盲審階段接收生命週期事件；在協調之後獲得完整的事後簡報。</div>
+        <div class="card-tags"><span class="tag green">雙通道</span><span class="tag">常駐</span><span class="tag cyan">事後簡報</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">A</div>
+          <div><div class="card-title">Architect</div><div class="card-model">Claude Opus &bull; 步驟 4</div></div>
+        </div>
+        <div class="card-desc">設計 + 跨模型 Council 辯論。Claude 與 Codex/Gemini 進行 2&ndash;4 輪辯論。撰寫 plan-to-exec.md。設計前透過 Context7 查詢最新函式庫文件。</div>
+        <div class="card-tags"><span class="tag purple">Council 辯論</span><span class="tag amber">跨模型</span><span class="tag cyan">Context7</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">E</div>
+          <div><div class="card-title">Executor</div><div class="card-model">Claude Opus &bull; 步驟 5</div></div>
+        </div>
+        <div class="card-desc">後端實作。在隔離的 git worktree 中工作。寫入前透過 Context7 查詢最新函式庫文件。僅在 worktree 範圍內提交。</div>
+        <div class="card-tags"><span class="tag">Worktree 隔離</span><span class="tag cyan">Context7</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">F</div>
+          <div><div class="card-title">Frontend</div><div class="card-model">Claude Opus &bull; 步驟 5</div></div>
+        </div>
+        <div class="card-desc">React/Next.js + shadcn/Tailwind 專家。與 Executor 使用不同的 worktree。透過 Context7 查詢最新框架文件。僅在偵測到前端範疇時啟動。</div>
+        <div class="card-tags"><span class="tag">Worktree 隔離</span><span class="tag">條件啟動</span><span class="tag cyan">Context7</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">T</div>
+          <div><div class="card-title">Tester</div><div class="card-model">Claude Opus &bull; 步驟 6</div></div>
+        </div>
+        <div class="card-desc">單元測試、整合測試、邊界情況測試。作為盲審跨模型測試的一部分，採用分歧框架。</div>
+        <div class="card-tags"><span class="tag purple">盲審</span><span class="tag">Worktree 隔離</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">V</div>
+          <div><div class="card-title">Verifier</div><div class="card-model">Claude Opus &bull; 步驟 7</div></div>
+        </div>
+        <div class="card-desc">基於證據的驗證 + 程式碼審查合為一體。盲審跨模型驗證。</div>
+        <div class="card-tags"><span class="tag purple">盲審</span><span class="tag cyan">審查 + 驗證</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">S</div>
+          <div><div class="card-title">Simplifier</div><div class="card-model">Claude Opus &bull; 步驟 9</div></div>
+        </div>
+        <div class="card-desc">工作完成後的程式碼清理。變更後必須重新驗證（建置 + 測試）。失敗會觸發自動還原。</div>
+        <div class="card-tags"><span class="tag green">重新驗證</span></div>
+      </div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:16px;flex-wrap:wrap">
+      <div class="card" style="max-width:400px">
+        <div class="card-header">
+          <div class="card-icon sonnet">W</div>
+          <div><div class="card-title">Writer</div><div class="card-model">Claude Sonnet &bull; 步驟 10</div></div>
+        </div>
+        <div class="card-desc">文件更新 + 交叉驗證。Sonnet 對文件工作已足夠。</div>
+      </div>
+      <div class="card" style="max-width:400px">
+        <div class="card-header">
+          <div class="card-icon" style="background:linear-gradient(135deg,#22c55e,#16a34a)">A</div>
+          <div><div class="card-title">Analyst</div><div class="card-model">Claude Sonnet &bull; 步驟 10.5</div></div>
+        </div>
+        <div class="card-desc">回顧分析：查詢 <code>analytics.db</code>，依 Bird&rsquo;s Law 嚴重性分類事件（critical/warn/info），找出 <code>pattern_counts</code> 晉升候選人。</div>
+        <div class="card-tags"><span class="tag green">bypassPermissions</span><span class="tag">唯讀</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ PIPELINE ═══════════════════ -->
+<section id="pipeline">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">03 &mdash; 流程</div>
+      <h2>11.5 步驟管線</h2>
+      <p class="section-desc">從使用者意圖到生產就緒的程式碼。點擊每個步驟查看詳情。</p>
+    </div>
+    <div class="accordion fade-in">
+      <!-- Step 1 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">1</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">初始設定</div>
+              <div class="step-agents">
+                <span class="agent-pill lead-pill">Lead</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            tmux 守衛、session ID、目錄結構、<strong>source bmb-learn.sh</strong>、載入過去的 MISTAKE 記錄（本地 + 全域）、設定、session-prep 檢查、對話記錄器啟動。
+            <div class="step-badges"><span class="tag cyan">自動學習</span><span class="tag">Session 連續性</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 2 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">2</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">腦力激盪 + Consultant</div>
+              <div class="step-agents">
+                <span class="agent-pill lead-pill">Lead</span>
+                <span class="agent-pill sonnet">Consultant</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            Lead 直接與使用者進行腦力激盪（無獨立的 brainstormer 代理）。啟動常駐 Consultant 面板，搭配雙向 SendMessage。至少 2 輪。撰寫包含<strong>已知陷阱</strong>章節的簡報。
+            <div class="step-badges"><span class="tag green">內嵌式</span><span class="tag">雙向</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 3 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">3</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">使用者核准</div>
+              <div class="step-agents">
+                <span class="agent-pill lead-pill">Lead</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            呈現壓縮版簡報。<strong>YES</strong> &rarr; <code>bmb_learn PRAISE</code>。<strong>MODIFY</strong> &rarr; <code>bmb_learn CORRECTION</code> + 更新。<strong>NO</strong> &rarr; 取消。
+            <div class="step-badges"><span class="tag cyan">自動學習</span><span class="tag amber">三路分支</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 4 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">4</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">架構 Council</div>
+              <div class="step-agents">
+                <span class="agent-pill opus">Architect</span>
+                <span class="agent-pill cross-pill">Cross-Model</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            建立執行用的 git worktree。啟動 Architect 進行 Claude-Codex/Gemini Council 辯論（2&ndash;4 輪）。撰寫 plan-to-exec.md。<em>bugfix/infra 配方跳過此步驟。</em>
+            <div class="step-badges"><span class="tag purple">Council 辯論</span><span class="tag amber">跨模型</span><span class="tag">跳過：bugfix、infra</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 5 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">5</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">執行</div>
+              <div class="step-agents">
+                <span class="agent-pill opus">Executor</span>
+                <span class="agent-pill opus">Frontend</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            在<strong>獨立 worktree</strong> 中啟動 Executor + Frontend（條件啟動）。平行執行，零 git 衝突。Frontend 僅在偵測到範疇時啟動（React、Vue、Svelte 等）。
+            <div class="step-badges"><span class="tag">Worktree 隔離</span><span class="tag">平行</span><span class="tag">條件啟動前端</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 5.5 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">5.5</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">合併 Worktree</div>
+              <div class="step-agents">
+                <span class="agent-pill lead-pill">Lead</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            在 worktree 中提交 &rarr; 合併至 main &rarr; 移除 worktree。衝突？<code>bmb_learn MISTAKE</code> + 上報使用者。
+            <div class="step-badges"><span class="tag cyan">自動學習</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 6 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">6</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">跨模型測試（盲審）</div>
+              <div class="step-agents">
+                <span class="agent-pill opus">Tester</span>
+                <span class="agent-pill cross-pill">Cross-Model</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            Claude Tester 讀取 <code>plan-to-exec.md</code>。Cross-Model Tester 讀取 <code>briefing.md</code>。不同的框架、獨立的 worktree、獨立的逾時設定。雙方皆不讀取對方的結果。
+            <div class="step-badges"><span class="tag purple">盲審牆</span><span class="tag amber">分歧框架</span><span class="tag">Worktree 隔離</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 7 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">7</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">跨模型驗證（盲審）</div>
+              <div class="step-agents">
+                <span class="agent-pill opus">Verifier</span>
+                <span class="agent-pill cross-pill">Cross-Model</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            與步驟 6 相同的盲審分歧模式。Consultant 隔離：協調完成前不分享結果。
+            <div class="step-badges"><span class="tag purple">盲審牆</span><span class="tag amber">分歧框架</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 8 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">8</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">協調</div>
+              <div class="step-agents">
+                <span class="agent-pill lead-pill">Lead</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            讀取結構化摘要。5 類故障分類器：<strong>IMPL</strong>&rarr;步驟 5、<strong>ARCH</strong>&rarr;步驟 4、<strong>REQ</strong>&rarr;步驟 2、<strong>ENV</strong>&rarr;步驟 1、<strong>TEST</strong>&rarr;步驟 6。FAIL 觸發 <code>bmb_learn MISTAKE</code> + 分類式迴圈。
+            <div class="step-badges"><span class="tag cyan">自動學習</span><span class="tag">故障分類</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 9 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">9</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">簡化 + 重新驗證</div>
+              <div class="step-agents">
+                <span class="agent-pill opus">Simplifier</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            最小限度的安全改進。建置 + 測試必須通過（重新驗證）。失敗 &rarr; <code>bmb_learn MISTAKE</code> + 還原 + 使用原始版本繼續。
+            <div class="step-badges"><span class="tag green">重新驗證</span><span class="tag cyan">自動學習</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 10 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">10</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">文件更新</div>
+              <div class="step-agents">
+                <span class="agent-pill sonnet">Writer</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            Writer 更新文件，移除失效引用，在所有修改的檔案間交叉驗證一致性。
+          </div>
+        </div>
+      </div>
+      <!-- Step 10.5 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">10.5</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">回顧分析</div>
+              <div class="step-agents">
+                <span class="agent-pill" style="background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff">Analyst</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            Analyst 查詢當前 session 的 <code>analytics.db</code>。依 <strong>Bird&rsquo;s Law 嚴重性</strong>分類事件（critical / warn / info）。交叉比對 <code>pattern_counts</code> 找出反覆出現的故障（&ge;2 次）以作為 CLAUDE.md 晉升候選。撰寫 <code>analyst-report.md</code>（3&ndash;5 分鐘逾時；逾時則管線繼續）。
+            <div class="step-badges"><span class="tag green">Bird&rsquo;s Law</span><span class="tag cyan">pattern_counts</span><span class="tag">唯讀代理</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 11 -->
+      <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+          <div class="step-num">11</div>
+          <div class="accordion-summary">
+            <div class="accordion-title-wrap">
+              <div class="step-title">清理 + Session 準備</div>
+              <div class="step-agents">
+                <span class="agent-pill lead-pill">Lead</span>
+              </div>
+            </div>
+            <div class="accordion-chevron">&#9662;</div>
+          </div>
+        </div>
+        <div class="accordion-body">
+          <div class="accordion-detail">
+            成功時執行 <code>bmb_learn PRAISE</code>。檢查重複次數 &ge;2 &rarr; 提議 CLAUDE.md 晉升。Git commit/push。FTS5 索引。為下個 session 產生 session-prep.md。
+            <div class="step-badges"><span class="tag cyan">自動學習</span><span class="tag">Session 連續性</span><span class="tag green">CLAUDE.md 晉升</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mermaid #2: Pipeline Flowchart -->
+    <h3>管線流程圖</h3>
+    <div class="mermaid-wrap fade-in">
+      <pre class="mermaid">
+flowchart TD
+  S1["1. Setup<br/><i>tmux, session, learnings</i>"]
+  S2["2. Brainstorm + Consultant<br/><i>min 2 rounds</i>"]
+  S3{"3. User Approval"}
+  S4["4. Architecture Council<br/><i>2-4 debate rounds</i>"]
+  S5["5. Execution<br/><i>worktree-isolated</i>"]
+  S55["5.5 Merge Worktrees"]
+  S6["6. Blind Testing<br/><i>divergent framing</i>"]
+  S7["7. Blind Verification<br/><i>divergent framing</i>"]
+  S8{"8. Reconciliation"}
+  S9["9. Simplify + Re-verify"]
+  S10["10. Docs Update"]
+  S105["10.5 Retrospective Analysis<br/><i>Bird's Law severity</i>"]
+  S11["11. Cleanup + Session Prep"]
+
+  S1 --> S2
+  S2 --> S3
+  S3 -->|"YES"| S4
+  S3 -->|"MODIFY"| S2
+  S3 -->|"NO"| CANCEL["Cancel"]
+  S4 -->|"skip: bugfix/infra"| S5
+  S4 --> S5
+
+  subgraph parallel ["Parallel Worktrees"]
+    direction LR
+    EX["Executor"]
+    FE["Frontend<br/><i>if detected</i>"]
+  end
+  S5 --> parallel
+  parallel --> S55
+  S55 --> S6
+  S6 --> S7
+  S7 --> S8
+  S8 -->|"PASS"| S9
+  S8 -->|"IMPL fail"| S5
+  S8 -->|"ARCH fail"| S4
+  S8 -->|"REQ fail"| S2
+  S8 -->|"ENV fail"| S1
+  S8 -->|"TEST fail"| S6
+  S9 --> S10
+  S10 --> S105
+  S105 --> S11
+
+  classDef decision fill:#1a1500,stroke:#d97706,color:#f59e0b
+  classDef cancel fill:#2a0a0a,stroke:#ef4444,color:#ef4444
+  classDef step fill:#111827,stroke:#1e3a5f,color:#e8edf5
+  classDef parallel fill:#0a1628,stroke:#3b82f6,color:#60a5fa
+  classDef analyst fill:#0a2010,stroke:#22c55e,color:#4ade80
+
+  class S3,S8 decision
+  class CANCEL cancel
+  class S1,S2,S4,S5,S55,S6,S7,S9,S10,S11 step
+  class EX,FE parallel
+  class S105 analyst
+      </pre>
+      <div class="mermaid-hint">&larr; 滾動 &rarr;</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ DATA FLOW ═══════════════════ -->
+<section id="dataflow">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">04 &mdash; 資料</div>
+      <h2>交接資料流</h2>
+      <p class="section-desc">產出物如何透過 .bmb/ 目錄在代理之間流轉。Lead 絕不碰程式碼 &mdash; 僅讀取摘要。</p>
+    </div>
+
+    <!-- Mermaid #3: Handoff Chain -->
+    <div class="mermaid-wrap fade-in">
+      <pre class="mermaid">
+flowchart LR
+  User["👤 User"]
+  Lead["🎯 Lead"]
+  Brief["📋 briefing.md"]
+  Arch["📐 Architect"]
+  Plan["📄 plan-to-exec.md"]
+  ExFe["⚙️ Executor<br/>🎨 Frontend"]
+  Merge["🔀 Merge"]
+  Test["🧪 Tester<br/><i>blind</i>"]
+  Verify["✅ Verifier<br/><i>blind</i>"]
+  Recon["⚖️ Reconcile"]
+  Simp["🧹 Simplifier"]
+  Write["📝 Writer"]
+  Output["✨ Output"]
+
+  User -->|"intent"| Lead
+  Lead -->|"brainstorm"| Brief
+  Brief -->|"briefing"| Arch
+  Arch -->|"council"| Plan
+  Plan -->|"instructions"| ExFe
+  ExFe -->|"worktrees"| Merge
+  Merge -->|"merged code"| Test
+  Merge -->|"merged code"| Verify
+  Test -->|"test-summary"| Recon
+  Verify -->|"verify-summary"| Recon
+  Recon -->|"PASS"| Simp
+  Simp -->|"cleaned"| Write
+  Write --> Output
+
+  classDef artifact fill:#1a2234,stroke:#3b82f6,color:#60a5fa
+  classDef agent fill:#111827,stroke:#1e3a5f,color:#e8edf5
+
+  class Brief,Plan artifact
+  class User,Lead,Arch,ExFe,Merge,Test,Verify,Recon,Simp,Write,Output agent
+      </pre>
+      <div class="mermaid-hint">&larr; 滾動 &rarr;</div>
+    </div>
+
+    <!-- Mermaid #4: Consultant Feed Timeline -->
+    <h3>Consultant Feed 時間軸</h3>
+    <div class="mermaid-wrap fade-in">
+      <pre class="mermaid">
+gantt
+  title Consultant Monitoring (Steps 2–11)
+  dateFormat X
+  axisFormat %s
+
+  section Brainstorm
+    Bidirectional with Lead          :active, 0, 2
+
+  section Approval
+    Monitor user decision            :1, 3
+
+  section Council
+    Observe debate rounds            :2, 4
+
+  section Execution
+    Track progress via feed file     :3, 6
+
+  section Testing
+    Monitor blind test results       :5, 7
+
+  section Verification
+    Monitor blind verify results     :6, 8
+
+  section Reconciliation
+    Observe failure classification   :7, 9
+
+  section Simplify
+    Track re-verify outcome          :8, 10
+
+  section Docs
+    Validate doc consistency         :9, 11
+
+  section Cleanup
+    Final session summary            :10, 12
+      </pre>
+      <div class="mermaid-hint">&larr; 滾動 &rarr;</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ BLIND PROTOCOL ═══════════════════ -->
+<section id="blind">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">05 &mdash; 品質</div>
+      <h2>盲審分歧協議</h2>
+      <p class="section-desc">不僅在結果上盲審 &mdash; 在問題框架上就存在分歧。工作區層級的盲審跨模型驗證。</p>
+    </div>
+    <div class="blind-wall fade-in">
+      <div class="blind-track claude">
+        <h4 style="color:var(--accent-light)">Claude 追蹤</h4>
+        <div class="blind-detail">
+          <strong>讀取：</strong> plan-to-exec.md + diff<br>
+          <strong>視角：</strong> 實作忠實度<br>
+          <strong>Worktree：</strong> tester-claude / verifier-claude<br>
+          <strong>逾時：</strong> claude_agent (1200s)<br><br>
+          <strong style="color:var(--red)">絕不讀取：</strong> *-cross.md
+        </div>
+      </div>
+      <div class="blind-separator">
+        <span>盲審牆</span>
+      </div>
+      <div class="blind-track cross">
+        <h4 style="color:var(--amber)">跨模型追蹤</h4>
+        <div class="blind-detail">
+          <strong>讀取：</strong> briefing.md + diff<br>
+          <strong>視角：</strong> 使用者意圖忠實度<br>
+          <strong>Worktree：</strong> tester-cross / verifier-cross<br>
+          <strong>逾時：</strong> cross_model (3600s)<br><br>
+          <strong style="color:var(--red)">絕不讀取：</strong> *-claude.md
+        </div>
+      </div>
+    </div>
+    <div style="max-width:700px;margin:24px auto 0;text-align:center;color:var(--text-muted);font-size:0.9rem;line-height:1.8;">
+      <strong style="color:var(--text)">為何分歧框架很重要：</strong>Claude 看到詳細的執行計畫並檢查「我們是否按計畫建構了？」跨模型看到原始的使用者簡報並檢查「我們是否建構了使用者真正想要的？」這能捕捉到<em>符合計畫但不符使用者意圖</em>的實作。
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ WORKTREES ═══════════════════ -->
+<section id="worktrees">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">06 &mdash; 隔離</div>
+      <h2>Worktree 生命週期</h2>
+      <p class="section-desc">每個平行代理都擁有獨立的 git worktree。無共享狀態、無 index.lock 衝突，實現真正的檔案系統隔離。</p>
+    </div>
+
+    <!-- Mermaid #6: Worktree Lifecycle -->
+    <div class="mermaid-wrap fade-in">
+      <pre class="mermaid">
+gantt
+  title Worktree Lifecycle per Pipeline Run
+  dateFormat X
+  axisFormat Step %s
+
+  section Executor
+    Create worktree     :e1, 4, 5
+    Work in worktree    :e2, 5, 6
+    Merge to main       :crit, e3, 6, 7
+
+  section Frontend
+    Create worktree     :f1, 4, 5
+    Work in worktree    :f2, 5, 6
+    Merge to main       :crit, f3, 6, 7
+
+  section Tester-Claude
+    Create worktree     :tc1, 6, 7
+    Run tests           :tc2, 7, 8
+    Cleanup             :tc3, 8, 9
+
+  section Tester-Cross
+    Create worktree     :tx1, 6, 7
+    Run tests           :tx2, 7, 8
+    Cleanup             :tx3, 8, 9
+
+  section Verifier-Claude
+    Create worktree     :vc1, 7, 8
+    Verify              :vc2, 8, 9
+    Cleanup             :vc3, 9, 10
+
+  section Verifier-Cross
+    Create worktree     :vx1, 7, 8
+    Verify              :vx2, 8, 9
+    Cleanup             :vx3, 9, 10
+      </pre>
+      <div class="mermaid-hint">&larr; 滾動 &rarr;</div>
+    </div>
+
+    <div class="code-block fade-in"><span class="comment">Step 4</span>  Create executor + frontend worktrees from HEAD
+        <span class="function">git worktree add</span> .bmb/worktrees/executor bmb-executor-{SESSION}
+        <span class="function">git worktree add</span> .bmb/worktrees/frontend bmb-frontend-{SESSION}
+
+<span class="comment">Step 5</span>  Agents work in <span class="keyword">isolated</span> worktrees (zero conflict possible)
+
+<span class="comment">Step 5.5</span> Merge worktrees &rarr; main
+        commit in worktree &rarr; merge --no-edit &rarr; remove worktree
+        Conflict? &rarr; <span class="string">bmb_learn MISTAKE</span> + escalate to user
+
+<span class="comment">Step 6</span>  Create <span class="keyword">2</span> tester worktrees from merged HEAD
+        tester-claude + tester-cross
+
+<span class="comment">Step 7</span>  Create <span class="keyword">2</span> verifier worktrees from merged HEAD
+        verifier-claude + verifier-cross
+
+<span class="comment">Step 8+</span> Remove all remaining worktrees
+        <span class="function">git worktree list</span> | grep '.bmb/worktrees' | xargs -I{} git worktree remove {}</div>
+  </div>
+</section>
+
+<!-- ═══════════════════ CROSS-MODEL ═══════════════════ -->
+<section id="crossmodel">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">07 &mdash; 多模型</div>
+      <h2>跨模型協議</h2>
+      <p class="section-desc">Council 辯論使用 Claude &harr; Codex/Gemini 檔案交換。基於設定檔的權限確保在需要時保持唯讀。</p>
+    </div>
+
+    <!-- Mermaid #5: Council Sequence Diagram -->
+    <div class="mermaid-wrap fade-in">
+      <pre class="mermaid">
+sequenceDiagram
+  participant A as Architect<br/>(Claude Opus)
+  participant F as Council Files<br/>(.bmb/council/)
+  participant X as Cross-Model<br/>(Codex / Gemini)
+
+  Note over A,X: Round 1 — Initial Proposals
+  A->>F: Write claude-proposal.md
+  X->>F: Write cross-proposal.md
+
+  Note over A,X: Round 2 — Critique
+  A->>F: Read cross-proposal.md
+  A->>F: Write claude-critique.md
+  X->>F: Read claude-proposal.md
+  X->>F: Write cross-critique.md
+
+  Note over A,X: Round 3 — Synthesis (optional)
+  A->>F: Read cross-critique.md
+  A->>F: Write claude-synthesis.md
+  X->>F: Read claude-critique.md
+  X->>F: Write cross-synthesis.md
+
+  Note over A,X: Round 4 — Final Decision
+  A->>F: Read all files
+  A->>F: Write plan-to-exec.md ✅
+
+  Note right of X: Cross-Model uses<br/>--profile read-only
+      </pre>
+      <div class="mermaid-hint">&larr; 滾動 &rarr;</div>
+    </div>
+
+    <div class="card-grid fade-in" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon cross">R</div>
+          <div><div class="card-title">唯讀設定檔</div></div>
+        </div>
+        <div class="card-desc"><code>council</code> 和 <code>verify</code> 設定檔：跨模型只能讀取程式碼並寫入 <code>.bmb/</code>。不允許生產環境寫入。</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon cross">W</div>
+          <div><div class="card-title">可寫設定檔</div></div>
+        </div>
+        <div class="card-desc"><code>test</code> 和 <code>exec-assist</code> 設定檔：跨模型可在 worktree 範圍內撰寫測試和輔助程式碼。</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon cross">T</div>
+          <div><div class="card-title">個別追蹤逾時</div></div>
+        </div>
+        <div class="card-desc">Claude：預設 1200s。跨模型：預設 3600s。可透過 <code>bmb-config.sh</code> 設定。獨立的截止時間追蹤。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ COMPRESSION ═══════════════════ -->
+<section id="compression">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">08 &mdash; 上下文</div>
+      <h2>三層上下文壓縮</h2>
+      <p class="section-desc">Lead 的上下文視窗是共享資源。三個壓縮層確保其永不超過 50% 容量。</p>
+    </div>
+    <div class="tier-diagram fade-in">
+      <div class="tier">
+        <div class="tier-num">L1</div>
+        <div class="tier-content">
+          <div class="tier-title">讀取時壓縮</div>
+          <div class="tier-desc">Lead 僅讀取 <code>.compressed/*.summary.md</code>（最多 300 token）。原始產出物僅在爭議時才存取。</div>
+        </div>
+      </div>
+      <div style="text-align:center;color:var(--text-dim);font-size:1.5rem;">&darr;</div>
+      <div class="tier">
+        <div class="tier-num">L2</div>
+        <div class="tier-content">
+          <div class="tier-title">寫入時快取</div>
+          <div class="tier-desc">代理將超過 50 行的工具輸出快取至 <code>.tool-cache/</code>。僅保留摘要："Modified: auth.ts (47 lines)"、"PASS: 12, FAIL: 0"。</div>
+        </div>
+      </div>
+      <div style="text-align:center;color:var(--text-dim);font-size:1.5rem;">&darr;</div>
+      <div class="tier">
+        <div class="tier-num">L3</div>
+        <div class="tier-content">
+          <div class="tier-title">引用時索引</div>
+          <div class="tier-desc">FTS5 資料庫索引過去的 Council 決策和交接內容。開始新工作前會進行查詢，以重用過去的決策。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ AUTO-LEARNING ═══════════════════ -->
+<section id="learning">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">09 &mdash; 智慧</div>
+      <h2>自動學習系統</h2>
+      <p class="section-desc">錯誤、修正和成功都會自動記錄。過去的陷阱會注入所有專案的未來 session 中。</p>
+    </div>
+    <div class="tier-diagram fade-in">
+      <div class="tier">
+        <div class="tier-num">T1</div>
+        <div class="tier-content">
+          <div class="tier-title">專案本地</div>
+          <div class="tier-desc"><code>.bmb/learnings.md</code> &mdash; 每行一筆學習紀錄，依時間順序追加。在步驟 1 為此專案載入。</div>
+        </div>
+        <div class="tier-arrow">&darr;</div>
+      </div>
+      <div style="text-align:center;color:var(--text-dim);font-size:1.5rem;">&darr;</div>
+      <div class="tier">
+        <div class="tier-num">T2</div>
+        <div class="tier-content">
+          <div class="tier-title">全域跨專案</div>
+          <div class="tier-desc"><code>~/.claude/bmb-system/learnings-global.md</code> &mdash; 相同格式加上 [project_name] 標籤。在所有 BMB 專案間共享。</div>
+        </div>
+        <div class="tier-arrow">&darr;</div>
+      </div>
+      <div style="text-align:center;color:var(--text-dim);font-size:1.5rem;">&darr;</div>
+      <div class="tier">
+        <div class="tier-num">T3</div>
+        <div class="tier-content">
+          <div class="tier-title">CLAUDE.md 晉升</div>
+          <div class="tier-desc">重複次數 &ge;2 &rarr; 向使用者提議 &rarr; 永久規則。絕不自動編輯，使用者始終需核准。</div>
+        </div>
+      </div>
+    </div>
+    <div class="code-block fade-in" style="margin-top:32px"><span class="comment"># Example learnings.md entries</span>
+<span class="string">[2026-03-10 14:32]</span> MISTAKE (step 8): Missing input validation &rarr; Always validate at API boundary
+<span class="string">[2026-03-10 15:01]</span> CORRECTION (step 3): User changed auth to OAuth &rarr; Confirm auth strategy in brainstorm
+<span class="string">[2026-03-10 16:45]</span> PRAISE (step 11): Pipeline completed successfully &rarr; Current approach works
+
+<span class="comment"># Context cost: ~150 tokens (5 lines &times; ~30 tokens). Negligible.</span></div>
+  </div>
+</section>
+
+<!-- ═══════════════════ RECIPES ═══════════════════ -->
+<section id="recipes">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">10 &mdash; 配方</div>
+      <h2>配方矩陣</h2>
+      <p class="section-desc">六種任務類型，每種都有各自優化的管線路徑。不論配方為何，Consultant 始終存在。</p>
+    </div>
+    <div class="recipe-grid fade-in">
+      <!-- Feature -->
+      <div class="recipe-card feature">
+        <div class="recipe-icon">&#9889;</div>
+        <div class="recipe-name">Feature</div>
+        <div class="recipe-chain">
+          腦力激盪 <span class="arrow">&rarr;</span> Architect <span class="arrow">&rarr;</span> Exec+Frontend <span class="arrow">&rarr;</span> 測試 <span class="arrow">&rarr;</span> 驗證 <span class="arrow">&rarr;</span> 簡化 <span class="arrow">&rarr;</span> 撰寫
+        </div>
+        <div class="recipe-flags">
+          <span class="tag purple">Council</span>
+          <span class="tag amber">跨模型：測試+驗證</span>
+          <span class="tag">前端：偵測時</span>
+        </div>
+      </div>
+      <!-- Bugfix -->
+      <div class="recipe-card bugfix">
+        <div class="recipe-icon">&#128295;</div>
+        <div class="recipe-name">Bugfix</div>
+        <div class="recipe-chain">
+          腦力激盪 <span class="arrow">&rarr;</span> Exec <span class="arrow">&rarr;</span> 測試 <span class="arrow">&rarr;</span> 驗證 <span class="arrow">&rarr;</span> 撰寫
+        </div>
+        <div class="recipe-flags">
+          <span class="tag" style="opacity:0.4">無 Council</span>
+          <span class="tag amber">跨模型：測試+驗證</span>
+          <span class="tag" style="opacity:0.4">無前端</span>
+        </div>
+      </div>
+      <!-- Refactor -->
+      <div class="recipe-card refactor">
+        <div class="recipe-icon">&#9851;&#65039;</div>
+        <div class="recipe-name">Refactor</div>
+        <div class="recipe-chain">
+          腦力激盪 <span class="arrow">&rarr;</span> Architect <span class="arrow">&rarr;</span> Exec+Frontend <span class="arrow">&rarr;</span> 驗證 <span class="arrow">&rarr;</span> 簡化 <span class="arrow">&rarr;</span> 撰寫
+        </div>
+        <div class="recipe-flags">
+          <span class="tag purple">Council</span>
+          <span class="tag amber">跨模型：僅驗證</span>
+          <span class="tag">前端：偵測時</span>
+        </div>
+      </div>
+      <!-- Research -->
+      <div class="recipe-card research">
+        <div class="recipe-icon">&#128269;</div>
+        <div class="recipe-name">Research</div>
+        <div class="recipe-chain">
+          僅腦力激盪
+        </div>
+        <div class="recipe-flags">
+          <span class="tag" style="opacity:0.4">Council：可選</span>
+          <span class="tag" style="opacity:0.4">無跨模型</span>
+          <span class="tag" style="opacity:0.4">無前端</span>
+        </div>
+      </div>
+      <!-- Review -->
+      <div class="recipe-card review-r">
+        <div class="recipe-icon">&#128270;</div>
+        <div class="recipe-name">Review</div>
+        <div class="recipe-chain">
+          腦力激盪 <span class="arrow">&rarr;</span> Verifier <span class="arrow">（審查模式）</span>
+        </div>
+        <div class="recipe-flags">
+          <span class="tag" style="opacity:0.4">無 Council</span>
+          <span class="tag amber">跨模型：僅驗證</span>
+          <span class="tag" style="opacity:0.4">無前端</span>
+        </div>
+      </div>
+      <!-- Infra -->
+      <div class="recipe-card infra">
+        <div class="recipe-icon">&#9881;&#65039;</div>
+        <div class="recipe-name">Infra</div>
+        <div class="recipe-chain">
+          腦力激盪 <span class="arrow">&rarr;</span> Exec <span class="arrow">&rarr;</span> 驗證 <span class="arrow">&rarr;</span> 撰寫
+        </div>
+        <div class="recipe-flags">
+          <span class="tag" style="opacity:0.4">無 Council</span>
+          <span class="tag amber">跨模型：僅驗證</span>
+          <span class="tag" style="opacity:0.4">無前端</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SKILLS ═══════════════════ -->
+<section id="skills">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">11 &mdash; 指令</div>
+      <h2>技能指令</h2>
+      <p class="section-desc">4 個斜線指令以不同規模呈現 BMB 的功能 &mdash; 從完整管線到專注的腦力激盪。</p>
+    </div>
+
+    <div class="card-grid fade-in">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon lead">/B</div>
+          <div>
+            <div class="card-title">/BMB</div>
+            <div class="card-model">完整管線</div>
+          </div>
+        </div>
+        <div class="card-desc">完整的 11.5 步驟端到端管線。跨模型 Council、盲審驗證、分析、簡化及 Session 連續性。適用於任何非簡單的功能開發或錯誤修復。</div>
+        <div class="card-tags">
+          <span class="tag">11.5 步驟</span>
+          <span class="tag purple">跨模型</span>
+          <span class="tag green">Worktree</span>
+          <span class="tag amber">盲審驗證</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon new">/Bb</div>
+          <div>
+            <div class="card-title">/BMB-brainstorm</div>
+            <div class="card-model">構思</div>
+          </div>
+        </div>
+        <div class="card-desc">Lead + Consultant 雙向腦力激盪，搭配對話記錄。在撰寫任何程式碼之前探索意圖、需求和設計。</div>
+        <div class="card-tags">
+          <span class="tag">5 階段</span>
+          <span class="tag cyan">Consultant</span>
+          <span class="tag">無程式碼</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon opus">/Br</div>
+          <div>
+            <div class="card-title">/BMB-refactoring</div>
+            <div class="card-model">程式碼品質</div>
+          </div>
+        </div>
+        <div class="card-desc">搭配跨模型審查的平行分析、Worktree 隔離執行、審查循環及合併。專注於改善現有程式碼，不做功能變更。</div>
+        <div class="card-tags">
+          <span class="tag">6 階段</span>
+          <span class="tag purple">跨模型</span>
+          <span class="tag green">Worktree</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon sonnet">/Bs</div>
+          <div>
+            <div class="card-title">/BMB-setup</div>
+            <div class="card-model">設定</div>
+          </div>
+        </div>
+        <div class="card-desc">一次性專案設定：前置條件檢查、設定產生、gitignore 規則及確認。在首次使用管線前，每個專案執行一次。</div>
+        <div class="card-tags">
+          <span class="tag">5 步驟</span>
+          <span class="tag">前置條件</span>
+        </div>
+      </div>
+    </div>
+
+    <h3>技能關係圖</h3>
+    <div class="mermaid-wrap fade-in">
+      <pre class="mermaid">
+flowchart LR
+    Setup["/BMB-setup\n⚙️ Config"]
+    BMB["/BMB\n🔧 Full Pipeline"]
+    Brainstorm["/BMB-brainstorm\n💡 Ideation"]
+    Refactoring["/BMB-refactoring\n🔄 Code Quality"]
+
+    Setup -->|"prerequisite"| BMB
+    Setup -->|"prerequisite"| Brainstorm
+    Setup -->|"prerequisite"| Refactoring
+    Brainstorm -.->|"feeds into"| BMB
+    Refactoring -.->|"standalone"| BMB
+
+    style Setup fill:#111827,stroke:#22c55e,color:#e8edf5
+    style BMB fill:#111827,stroke:#3b82f6,color:#e8edf5,stroke-width:3px
+    style Brainstorm fill:#111827,stroke:#22d3ee,color:#e8edf5
+    style Refactoring fill:#111827,stroke:#a78bfa,color:#e8edf5
+      </pre>
+      <div class="mermaid-hint">&larr; 滾動 &rarr;</div>
+    </div>
+
+    <h3>步驟涵蓋範圍比較</h3>
+    <div class="table-wrap fade-in">
+      <table>
+        <thead>
+          <tr>
+            <th>階段</th>
+            <th>/BMB</th>
+            <th>/BMB-brainstorm</th>
+            <th>/BMB-refactoring</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>初始設定 / 設定</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td></tr>
+          <tr><td>Consultant Session</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td></tr>
+          <tr><td>腦力激盪 / 分析</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--green)">&#10003; 平行</td></tr>
+          <tr><td>Council 辯論</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td><td style="color:var(--green)">&#10003; 綜合</td></tr>
+          <tr><td>架構計畫</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td><td style="color:var(--text-dim)">&mdash;</td></tr>
+          <tr><td>執行（Worktree）</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td><td style="color:var(--green)">&#10003;</td></tr>
+          <tr><td>測試</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td><td style="color:var(--text-dim)">&mdash;</td></tr>
+          <tr><td>驗證（盲審）</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td><td style="color:var(--green)">&#10003; 審查</td></tr>
+          <tr><td>修復循環</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td><td style="color:var(--green)">&#10003;</td></tr>
+          <tr><td>簡化</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--text-dim)">&mdash;</td><td style="color:var(--text-dim)">&mdash;</td></tr>
+          <tr><td>合併 / 清理</td><td style="color:var(--green)">&#10003;</td><td style="color:var(--green)">&#10003; 摘要</td><td style="color:var(--green)">&#10003;</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ DEGRADATION ═══════════════════ -->
+<section id="degradation">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">12 &mdash; 韌性</div>
+      <h2>優雅降級</h2>
+      <p class="section-desc">管線絕不阻塞。每種故障模式都有定義好的降級方案。</p>
+    </div>
+    <div class="table-wrap fade-in">
+      <table>
+        <thead><tr><th>情境</th><th>行為</th></tr></thead>
+        <tbody>
+          <tr><td>跨模型不可用（Council）</td><td>單獨設計（僅 Claude），記錄於 session log</td></tr>
+          <tr><td>跨模型不可用（測試）</td><td>僅 Claude 的測試結果，記錄於協調階段</td></tr>
+          <tr><td>跨模型不可用（驗證）</td><td>僅 Claude 的驗證結果，記錄於協調階段</td></tr>
+          <tr><td>Claude 測試者逾時</td><td>記錄逾時，以跨模型結果繼續</td></tr>
+          <tr><td>跨模型逾時</td><td>以僅 Claude 的結果繼續</td></tr>
+          <tr><td>合併衝突</td><td><code>bmb_learn MISTAKE</code> + 上報使用者</td></tr>
+          <tr><td>Simplifier 破壞測試</td><td><code>bmb_learn MISTAKE</code> + 還原 + 使用原始版本繼續</td></tr>
+          <tr><td>Telegram 環境變數未設定</td><td>靜默跳過通知</td></tr>
+          <tr><td>knowledge.db 遺失</td><td>跳過索引/搜尋</td></tr>
+          <tr><td>未偵測到前端</td><td>跳過 Frontend 代理，僅使用 Executor</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ DIRECTORY ═══════════════════ -->
+<section id="directory">
+  <div class="container">
+    <div class="section-header fade-in">
+      <div class="section-label">13 &mdash; 結構</div>
+      <h2>目錄佈局</h2>
+      <p class="section-desc"><code>.bmb/</code> 目錄是所有管線產出物的唯一真實來源。</p>
+    </div>
+    <div class="dir-tree fade-in">
+<span class="folder">.bmb/</span>
+├── <span class="folder">handoffs/</span>              <span class="desc">── 代理間交接產出物</span>
+│   ├── <span class="file">briefing.md</span>          <span class="desc">── Lead 的腦力激盪輸出</span>
+│   ├── <span class="file">plan-to-exec.md</span>      <span class="desc">── Architect 的執行計畫</span>
+│   ├── <span class="file">test-claude.md</span>       <span class="desc">── Claude 測試者結果</span>
+│   ├── <span class="file">test-cross.md</span>        <span class="desc">── 跨模型測試者結果</span>
+│   ├── <span class="file">verify-claude.md</span>     <span class="desc">── Claude 驗證者結果</span>
+│   └── <span class="file">verify-cross.md</span>      <span class="desc">── 跨模型驗證者結果</span>
+│   └── <span class="folder">.compressed/</span>     <span class="desc">── Lead 用 L1 摘要</span>
+│       ├── <span class="file">briefing.summary.md</span>
+│       ├── <span class="file">test-result-claude.summary.md</span>
+│       └── <span class="file">verify-result-claude.summary.md</span>
+├── <span class="folder">councils/</span>              <span class="desc">── 跨模型辯論檔案</span>
+│   ├── <span class="file">LEGEND.md</span>            <span class="desc">── 所有歷次辯論的索引</span>
+│   └── <span class="folder">{topic}/</span>
+│       ├── <span class="file">round-01-claude.md</span>
+│       ├── <span class="file">round-01-cross.md</span>
+│       └── <span class="file">CONSENSUS.md</span>
+├── <span class="folder">worktrees/</span>             <span class="desc">── Git worktree 掛載點</span>
+│   ├── <span class="folder">executor/</span>
+│   ├── <span class="folder">frontend/</span>
+│   ├── <span class="folder">tester-claude/</span>
+│   ├── <span class="folder">tester-cross/</span>
+│   ├── <span class="folder">verifier-claude/</span>
+│   └── <span class="folder">verifier-cross/</span>
+├── <span class="folder">sessions/</span>              <span class="desc">── 每個 session 的狀態</span>
+│   └── <span class="folder">{session_id}/</span>
+│       ├── <span class="file">session-prep.md</span>  <span class="desc">── 下一個 session 的連續性</span>
+│       └── <span class="file">conversation.log</span> <span class="desc">── Consultant feed</span>
+├── <span class="folder">.tool-cache/</span>           <span class="desc">── L2 寫入時快取</span>
+├── <span class="file">config.json</span>            <span class="desc">── 專案設定</span>
+├── <span class="file">learnings.md</span>           <span class="desc">── T1 專案本地學習紀錄</span>
+├── <span class="file">session-log.md</span>         <span class="desc">── 當前 session 事件日誌</span>
+├── <span class="file">consultant-feed.md</span>     <span class="desc">── Lead → Consultant feed</span>
+└── <span class="file">knowledge.db</span>           <span class="desc">── L3 FTS5 引用索引</span>
+
+<span class="folder">~/.claude/bmb-system/</span>    <span class="desc">── 全域 BMB 安裝</span>
+├── <span class="folder">scripts/</span>
+│   ├── <span class="file">cross-model-run.sh</span> <span class="desc">── 跨模型調用</span>
+│   ├── <span class="file">bmb-learn.sh</span>       <span class="desc">── 共享學習函式</span>
+│   ├── <span class="file">knowledge-index.sh</span> <span class="desc">── FTS5 索引器</span>
+│   └── <span class="file">knowledge-search.sh</span><span class="desc">── FTS5 搜尋</span>
+├── <span class="folder">config/</span>
+│   └── <span class="file">defaults.json</span>      <span class="desc">── 預設設定</span>
+└── <span class="file">learnings-global.md</span>    <span class="desc">── T2 跨專案學習紀錄</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ FOOTER ═══════════════════ -->
+<footer>
+  <div class="logo-text">BMB</div>
+  <p>Worktree 隔離的跨模型代理編排<br>具備盲審分歧驗證與自動學習。</p>
+  <div style="margin-top:20px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">
+    <a href="index.html" style="color:var(--text-dim);text-decoration:none;font-size:0.82rem;font-weight:500;">English</a>
+    <a href="index.ko.html" style="color:var(--text-dim);text-decoration:none;font-size:0.82rem;font-weight:500;">한국어</a>
+    <a href="index.ja.html" style="color:var(--text-dim);text-decoration:none;font-size:0.82rem;font-weight:500;">日本語</a>
+    <a href="index.zh-TW.html" style="color:var(--accent-light);text-decoration:none;font-size:0.82rem;font-weight:500;">繁體中文</a>
+  </div>
+  <p style="margin-top:20px;color:var(--text-dim);font-size:0.78rem;">Be-my-butler &mdash; 為 Claude Code 打造</p>
+</footer>
+
+<script src="bmb-shared.js"></script>
+</body>
+</html>
