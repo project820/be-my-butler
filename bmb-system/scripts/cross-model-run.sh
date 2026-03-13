@@ -5,7 +5,7 @@
 # Supports: Codex, Gemini CLI
 #
 # Usage: cross-model-run.sh [--profile PROFILE] 'prompt here'
-# Profiles: council (read-only), verify (read-only), test (test files), exec-assist (write)
+# Profiles: council (read-only), verify (read-only), review (plan critique), test (test files), exec-assist (write)
 
 set -euo pipefail
 
@@ -71,12 +71,14 @@ PERM_PREFIX=""
 case "$PROFILE" in
   council|verify)
     PERM_PREFIX="IMPORTANT: You are in READ-ONLY mode. Do NOT modify any source files. Only write to .bmb/ directory. " ;;
+  review)
+    PERM_PREFIX="IMPORTANT: You are reviewing a plan document. Provide thorough critique: design flaws, missing considerations, infeasible parts, security vulnerabilities, and runtime contract conflicts. Output findings-first markdown. " ;;
   test)
     PERM_PREFIX="IMPORTANT: You may only create/modify test files. Do NOT modify source/production code. Write results to .bmb/ directory. " ;;
   exec-assist)
     PERM_PREFIX="" ;;
   *)
-    echo "ERROR: Unknown profile '$PROFILE'. Use: council, verify, test, exec-assist" >&2; exit 1 ;;
+    echo "ERROR: Unknown profile '$PROFILE'. Use: council, verify, review, test, exec-assist" >&2; exit 1 ;;
 esac
 
 # --- Context compression ---
