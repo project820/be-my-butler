@@ -1,42 +1,71 @@
-<<<<<<< HEAD
-# Track agents, commands, skills, and bmb-system scripts
+# Whitelist: only track be-my-butler project files
 *
+
+# Project infrastructure
 !.gitignore
+!.markdownlint.json
+!.github/
+!.github/**
+!LICENSE
+!README.md
+!VERSION
+!CHANGELOG.md
+!CONTRIBUTING.md
+!WHATS-NEW-*.md
+!install.sh
+!uninstall.sh
+!doctor.sh
+
+# Agents (BMB + Kion)
 !agents/
 !agents/**
+
+# Skills (BMB only — exclude third-party skills)
+!skills/
+!skills/bmb/
+!skills/bmb/**
+!skills/bmb-brainstorm/
+!skills/bmb-brainstorm/**
+!skills/bmb-setup/
+!skills/bmb-setup/**
+!skills/bmb-status/
+!skills/bmb-status/**
+!skills/bmb-refactoring/
+!skills/bmb-refactoring/**
+
+# Commands
 !commands/
 !commands/**
-!skills/
-!skills/**
+
+# BMB system (scripts, config)
 !bmb-system/
-!bmb-system/scripts/
-!bmb-system/scripts/*.sh
-=======
-# OS
+!bmb-system/**
+bmb-system/.bmb/
+
+# Source, tests, docs, examples
+!src/
+!src/**
+!tests/
+!tests/**
+!docs/
+!docs/**
+!examples/
+!examples/**
+
+# OS artifacts
 .DS_Store
 Thumbs.db
-
-# Editor
-*.swp
-*.swo
-*~
-.idea/
-.vscode/
 
 # Python
 __pycache__/
 *.pyc
 
-# Node (demo project)
-node_modules/
-npm-debug.log*
-
-# BMB runtime (never commit)
-.bmb/
-TODO.md
+# Editor
+*.swp
+*.swo
+*~
 
 # Environment
 .env
 .env.*
 !.env.example
->>>>>>> origin/main

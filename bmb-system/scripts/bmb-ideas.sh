@@ -20,8 +20,10 @@ bmb_idea_create() {
 
   bmb_idea_init
 
-  local ts=$(date +%Y%m%dT%H%M%S)
-  local slug=$(echo "$title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//' | cut -c1-40)
+  local ts
+  ts=$(date +%Y%m%dT%H%M%S)
+  local slug
+  slug=$(echo "$title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//' | cut -c1-40)
   local id="${ts}-${slug}"
   local idea_dir="$BMB_IDEAS_DIR/$id"
 
