@@ -45,6 +45,8 @@ Multi-agent orchestration pipeline with cross-model verification, idea lifecycle
 | `scripts/bmb-analytics.sh` | Session analytics telemetry |
 | `scripts/cross-model-run.sh` | Cross-model wrapper (codex/gemini) with profiles: council, verify, review, test, exec-assist |
 | `scripts/conversation-logger.py` | FIFO-based conversation logging |
+| `scripts/knowledge-index.sh` | Indexes council decisions + handoff content into FTS5 `knowledge.db` after each session |
+| `scripts/knowledge-search.sh` | Semantic search across past sessions via FTS5 (`knowledge.db`) |
 
 ## Config Architecture
 ```

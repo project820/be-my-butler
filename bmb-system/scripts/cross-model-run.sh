@@ -29,52 +29,35 @@ else
   PROMPT="${1:?Usage: cross-model-run.sh [--profile PROFILE] [-o OUTPUT_FILE] [-] 'prompt here'}"
 fi
 
-# --- Resolve config ---
+# --- Resolve config (provider, model, timeout) in one pass ---
 BMB_DIR="${BMB_DIR:-.bmb}"
 CONFIG_FILE="${BMB_DIR}/config.json"
 
-# Read provider from config.json → env var → default "codex"
-if [ -f "$CONFIG_FILE" ] && command -v python3 &>/dev/null; then
-  PROVIDER=$(_BMB_CFG="$CONFIG_FILE" python3 << 'PYEOF'
-import json, sys, os
-try:
-    c = json.load(open(os.environ['_BMB_CFG']))
-    print(c.get('cross_model',{}).get('provider','codex'))
-except: print('codex')
-PYEOF
-  ) || PROVIDER="codex"
-else
-  PROVIDER="${BMB_CROSS_MODEL_PROVIDER:-codex}"
-fi
-
-# Read model override from config (empty = use CLI default i.e. LATEST)
+PROVIDER="${BMB_CROSS_MODEL_PROVIDER:-codex}"
 MODEL_OVERRIDE=""
-if [ -f "$CONFIG_FILE" ] && command -v python3 &>/dev/null; then
-  MODEL_OVERRIDE=$(_BMB_CFG="$CONFIG_FILE" _BMB_PROVIDER="$PROVIDER" python3 << 'PYEOF'
-import json, os
-try:
-    c = json.load(open(os.environ['_BMB_CFG']))
-    cm = c.get('cross_model',{})
-    key = os.environ['_BMB_PROVIDER'] + '_model'
-    v = cm.get(key, 'LATEST')
-    print('' if v == 'LATEST' else v)
-except: print('')
-PYEOF
-  ) || MODEL_OVERRIDE=""
-fi
+TIMEOUT=3600
 
-# Read timeout from config
 if [ -f "$CONFIG_FILE" ] && command -v python3 &>/dev/null; then
-  TIMEOUT=$(_BMB_CFG="$CONFIG_FILE" python3 << 'PYEOF'
+  _CFG_LINE=$(_BMB_CFG="$CONFIG_FILE" python3 << 'PYEOF'
 import json, os
 try:
     c = json.load(open(os.environ['_BMB_CFG']))
-    print(c.get('cross_model',{}).get('timeout_seconds', 3600))
-except: print(3600)
+    cm = c.get('cross_model', {})
+    provider = cm.get('provider', 'codex')
+    model_key = provider + '_model'
+    model = cm.get(model_key, 'LATEST')
+    model_out = '' if model == 'LATEST' else model
+    timeout = cm.get('timeout_seconds', 3600)
+    print(f"{provider}\t{model_out}\t{timeout}")
+except:
+    print("codex\t\t3600")
 PYEOF
-  ) || TIMEOUT=3600
-else
-  TIMEOUT=3600
+  ) || _CFG_LINE=""
+  if [ -n "$_CFG_LINE" ]; then
+    PROVIDER=$(echo "$_CFG_LINE" | cut -f1)
+    MODEL_OVERRIDE=$(echo "$_CFG_LINE" | cut -f2)
+    TIMEOUT=$(echo "$_CFG_LINE" | cut -f3)
+  fi
 fi
 
 WORKDIR="${BMB_WORKDIR:-$(pwd)}"
