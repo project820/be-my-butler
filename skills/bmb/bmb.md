@@ -26,11 +26,11 @@ Pipeline REQUIRES tmux. Step 1 checks `$TMUX` — if unset, abort with clear err
 
 ### Fixed Panes (Lead + Consultant only)
 ```
-┌──────────────────────────────┐
-│         LEAD (top)           │
-├──────────────────────────────┤
-│      CONSULTANT (bottom)     │
-└──────────────────────────────┘
+┌──────────────────────────────┐        ┌───────────────────────┬──────────────┐
+│         LEAD (top)           │   →    │       LEAD (left)     │ CONSULTANT   │
+├──────────────────────────────┤        │                       │   (right)    │
+│      CONSULTANT (bottom)     │        │                       │              │
+└──────────────────────────────┘        └───────────────────────┴──────────────┘
 ```
 - Lead and Consultant panes are fixed for the entire pipeline
 - Consultant pane ID saved to `.bmb/consultant-pane-id`
@@ -61,15 +61,15 @@ Profiles: `council` (read-only), `verify` (read-only), `test` (test files only),
 NEVER use raw `codex exec` or `gemini run` commands directly.
 
 ## CONFIG LOADING
-At Step 1, read `.bmb/config.json` for:
-- `timeouts.claude_agent` → timeout for executor/tester/verifier/simplifier (default: 1200s)
-- `timeouts.cross_model` → timeout for cross-model operations (default: 3600s)
-- `timeouts.writer` → timeout for writer (default: 600s)
-- `git.auto_push` → "yes" / "no" / "ask"
-- `git.auto_commit` → true/false
-- `consultant.style` / `consultant.custom_style` → consultant personality
+At Step 1, source `~/.claude/bmb-system/scripts/bmb-config.sh` and use:
+- `bmb_config_get "timeouts.claude_agent"` → timeout for executor/tester/verifier/simplifier (default: 1200s)
+- `bmb_config_get "timeouts.cross_model"` → timeout for cross-model operations (default: 3600s)
+- `bmb_config_get "timeouts.writer"` → timeout for writer (default: 600s)
+- `bmb_config_get "git.auto_push"` → "yes" / "no" / "ask"
+- `bmb_config_get "git.auto_commit"` → true/false
+- `bmb_config_get "consultant.custom_style"` → consultant personality
 
-If config missing: use defaults (1200/3600/600s, ask, true, default style).
+If neither global nor local config exists: use defaults (1200/3600/600s, ask, true, default style).
 
 ## SESSION LOG PROTOCOL
 Each agent self-logs:
@@ -104,8 +104,15 @@ mkdir -p .bmb/sessions/${SESSION_ID}/handoffs/.compressed
 mkdir -p .bmb/sessions/${SESSION_ID}/councils
 ln -sfn ${SESSION_ID} .bmb/sessions/latest
 
+# Source config infrastructure
+source "$HOME/.claude/bmb-system/scripts/bmb-config.sh"
+if ! bmb_config_first_time_gate; then exit 0; fi
+
 # Source auto-learning function
 source "$HOME/.claude/bmb-system/scripts/bmb-learn.sh"
+
+# Source idea management
+source "$HOME/.claude/bmb-system/scripts/bmb-ideas.sh"
 
 # Source analytics helpers
 source "$HOME/.claude/bmb-system/scripts/bmb-analytics.sh"
@@ -143,8 +150,29 @@ LOGGER_PID=$!
 echo $LOGGER_PID > .bmb/sessions/${SESSION_ID}/logger.pid
 ```
 
-Read `.bmb/config.json` for timeouts and settings.
-Check for `.bmb/sessions/latest/session-prep.md` from previous session → if found, read it and ask user: "이전 세션을 이어갈까요?"
+**BEFORE** creating new SESSION_ID and updating symlink, read previous session:
+```bash
+# Finding 2 fix: read carry-forward BEFORE symlink update
+PREV_SESSION=""
+if [ -L ".bmb/sessions/latest" ]; then
+  PREV_SESSION=$(readlink .bmb/sessions/latest)
+  PREV_CF=".bmb/sessions/${PREV_SESSION}/carry-forward.md"
+  PREV_SP=".bmb/sessions/${PREV_SESSION}/session-prep.md"
+fi
+```
+
+Then check artifacts from PREV_SESSION (not latest, which will soon point to new session):
+1. `$PREV_CF` (carry-forward.md) — if found:
+   - Read and present completed/unfinished items
+   - Show pending count: "이전 세션에서 {N}개의 미완성 작업이 있어요."
+   - Present each unfinished item with context
+   - Ask: "이어서 할까요, 새로 시작할까요?"
+   - If continuing: mark resumed items and carry context forward
+2. `$PREV_SP` (session-prep.md) — if found (fallback):
+   - Read and present suggested next prompt
+   - Ask: "이전 세션을 이어갈까요?"
+
+**AFTER** user decides, proceed with new SESSION_ID creation and `ln -sfn`.
 If `.bmb/councils/LEGEND.md` exists, read it to prime context.
 Send Telegram: pipeline start notification.
 
@@ -159,21 +187,24 @@ bmb_analytics_step_end "1" "setup"
 bmb_analytics_step_start "2" "brainstorm"
 ```
 
-1. Initialize consultant feed:
+1. Initialize consultant feed (hybrid — Finding 3 fix):
    ```bash
    cat > .bmb/consultant-feed.md << EOF
    # Consultant Feed
    Task: {user's task description}
+   Session: .bmb/sessions/${SESSION_ID}/
+   Log: .bmb/sessions/${SESSION_ID}/conversation-log.md
    Started: $(date)
+   Style: $(bmb_config_get "consultant.custom_style" || echo "default")
 
    ## Pipeline Events
-   ### Step 2 ($(date +%H:%M)): Pipeline started
+   ### Step 1 ($(date +%H:%M)): Pipeline started
    EOF
    ```
 
-2. Spawn Consultant pane:
+2. Spawn Consultant pane (vertical split — Axis 1):
    ```bash
-   CONSULTANT=$(tmux split-pane -v -p 30 -d -P -F '#{pane_id}' \
+   CONSULTANT=$(tmux split-pane -h -p 35 -d -P -F '#{pane_id}' \
      "CLAUDECODE= claude --agent bmb-consultant --permission-mode bypassPermissions \
      '.bmb/consultant-feed.md를 먼저 읽고, 작업 내용을 파악한 뒤 유저에게 인사하세요.'")
    echo "$CONSULTANT" > .bmb/consultant-pane-id
@@ -187,6 +218,13 @@ bmb_analytics_step_start "2" "brainstorm"
    - Log exchanges to conversation logger pipe
    - Minimum 2 rounds of questions
    - If user says "충분해" or "넘어가자", proceed
+   - Handle `[NEW_IDEA]` from Consultant:
+     When Consultant sends `[NEW_IDEA] title | description`:
+     ```bash
+     NEW_IDEA_ID=$(bmb_idea_create "{title}" "{description}" "$SESSION_ID")
+     echo "$(date +%H:%M)|Lead|INSIGHT|Side idea captured: {title} (${NEW_IDEA_ID})" > .bmb/sessions/${SESSION_ID}/log-pipe
+     ```
+     SendMessage to Consultant: "아이디어 '{title}'이(가) 기록되었습니다 (${NEW_IDEA_ID})"
 
 4. Write briefing to `.bmb/handoffs/briefing.md`:
    ```
@@ -752,6 +790,35 @@ bmb_analytics_step_start "11" "cleanup"
    EOF
    ```
 
+9b. **Generate carry-forward.md (atomic: temp+mv):**
+    ```bash
+    cat > .bmb/sessions/${SESSION_ID}/carry-forward.md.tmp << EOF
+    # Carry Forward
+    Session: ${SESSION_ID}
+    Generated: $(date '+%Y-%m-%d %H:%M KST')
+    Project: $(pwd)
+
+    ## Completed
+    {extract from session-log.md — steps that finished successfully}
+
+    ## Unfinished
+    {any steps that timed out, failed, or were skipped}
+    {any user-mentioned TODO items from brainstorming}
+
+    ## New Ideas Captured
+    {list of [NEW_IDEA] items created during this session, with idea IDs}
+
+    ## Resume Context
+    - Recipe: {recipe used}
+    - Last completed step: {N}
+    - Architecture decisions: {from councils/}
+
+    ## Suggested Resume Prompt
+    "{actionable prompt for next session}"
+    EOF
+    mv .bmb/sessions/${SESSION_ID}/carry-forward.md.tmp .bmb/sessions/${SESSION_ID}/carry-forward.md
+    ```
+
 9. Record pipeline success: `bmb_learn PRAISE "11" "Pipeline completed successfully" "Current approach works"`
 
 10. **CLAUDE.md promotion check**: scan `.bmb/learnings.md` for rules appearing 2+ times (same `rule` text or very similar). If found, propose to user: "이 규칙이 반복되고 있습니다. CLAUDE.md Learnings로 승격할까요?" — never auto-edit, always ask.
@@ -767,6 +834,12 @@ bmb_analytics_step_start "11" "cleanup"
 14. Ask user: "계속할까요, 아니면 여기서 마칠까요?"
     - 계속 → new session from Step 1
     - 마침 → end
+
+## CONTEXT CHECK (between all steps)
+After each step completes, Lead checks own context usage:
+- If approaching limits: write carry-forward.md, inform user, graceful shutdown
+- Pattern: same as brainstorm overflow protocol but for pipeline context
+- Consultant is informed via SendMessage: `{"event":"context_overflow","step":"N","ts":"HH:MM"}`
 
 ## RECIPE REFERENCE
 
