@@ -51,19 +51,6 @@ except: print('')
 " 2>/dev/null) || MODEL_OVERRIDE=""
 fi
 
-# Read timeout from config
-if [ -f "$CONFIG_FILE" ] && command -v python3 &>/dev/null; then
-  TIMEOUT=$(python3 -c "
-import json
-try:
-    c = json.load(open('$CONFIG_FILE'))
-    print(c.get('cross_model',{}).get('timeout_seconds', 3600))
-except: print(3600)
-" 2>/dev/null) || TIMEOUT=3600
-else
-  TIMEOUT=3600
-fi
-
 WORKDIR="${BMB_WORKDIR:-$(pwd)}"
 
 # --- Profile-based permission prefix ---
@@ -95,11 +82,11 @@ case "$PROVIDER" in
       echo "DEGRADED: Cross-model unavailable, proceeding Claude-only" >&2
       exit 1
     fi
-    MODEL_ARGS=""
     if [ -n "$MODEL_OVERRIDE" ]; then
-      MODEL_ARGS="-m $MODEL_OVERRIDE"
+      exec codex exec -m "$MODEL_OVERRIDE" --full-auto -C "$WORKDIR" "$FULL_PROMPT"
+    else
+      exec codex exec --full-auto -C "$WORKDIR" "$FULL_PROMPT"
     fi
-    exec codex exec $MODEL_ARGS --full-auto -C "$WORKDIR" "$FULL_PROMPT"
     ;;
 
   gemini)
@@ -108,11 +95,11 @@ case "$PROVIDER" in
       echo "DEGRADED: Cross-model unavailable, proceeding Claude-only" >&2
       exit 1
     fi
-    MODEL_ARGS=""
     if [ -n "$MODEL_OVERRIDE" ]; then
-      MODEL_ARGS="-m $MODEL_OVERRIDE"
+      exec gemini run -m "$MODEL_OVERRIDE" "$FULL_PROMPT"
+    else
+      exec gemini run "$FULL_PROMPT"
     fi
-    exec gemini run $MODEL_ARGS "$FULL_PROMPT"
     ;;
 
   *)

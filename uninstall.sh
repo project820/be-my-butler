@@ -6,17 +6,16 @@ CLAUDE_DIR="$HOME/.claude"
 
 # ── Colors ─────────────────────────────────────────────────────────────────────
 if [ -t 1 ] && command -v tput >/dev/null 2>&1; then
-    RED=$(tput setaf 1)
     GREEN=$(tput setaf 2)
     YELLOW=$(tput setaf 3)
     BOLD=$(tput bold)
     RESET=$(tput sgr0)
 else
-    RED="" GREEN="" YELLOW="" CYAN="" BOLD="" RESET=""
+    GREEN="" YELLOW="" BOLD="" RESET=""
 fi
 
-ok()   { printf "  ${GREEN}✓${RESET} %s\n" "$*"; }
-warn() { printf "  ${YELLOW}!${RESET} %s\n" "$*"; }
+ok()   { printf "  %s✓%s %s\n" "$GREEN" "$RESET" "$*"; }
+warn() { printf "  %s!%s %s\n" "$YELLOW" "$RESET" "$*"; }
 info() { printf "  → %s\n" "$*"; }
 
 # ── Parse arguments ────────────────────────────────────────────────────────────
@@ -66,7 +65,7 @@ if [ "$ITEM_COUNT" -eq 0 ]; then
 fi
 
 # ── Show what will be removed ──────────────────────────────────────────────────
-printf "\n${BOLD}The following BMB files will be removed:${RESET}\n\n"
+printf "\n%sThe following BMB files will be removed:%s\n\n" "$BOLD" "$RESET"
 
 echo "$TARGETS" | while IFS= read -r path; do
     [ -z "$path" ] && continue
@@ -93,9 +92,7 @@ if [ "$AUTO_YES" = false ]; then
 fi
 
 # ── Remove ─────────────────────────────────────────────────────────────────────
-printf "\n${BOLD}Removing BMB...${RESET}\n"
-
-REMOVED=""
+printf "\n%sRemoving BMB...%s\n" "$BOLD" "$RESET"
 
 echo "$TARGETS" | while IFS= read -r path; do
     [ -z "$path" ] && continue
@@ -112,12 +109,14 @@ done
 # Clean up empty parent directories (skills/, agents/) only if they're empty
 for dir in "$CLAUDE_DIR/skills" "$CLAUDE_DIR/agents"; do
     if [ -d "$dir" ] && [ -z "$(ls -A "$dir" 2>/dev/null)" ]; then
-        rmdir "$dir" 2>/dev/null && ok "Removed empty directory: $(basename "$dir")/" || true
+        if rmdir "$dir" 2>/dev/null; then
+            ok "Removed empty directory: $(basename "$dir")/"
+        fi
     fi
 done
 
 # ── Preserved items ───────────────────────────────────────────────────────────
-printf "\n${BOLD}Preserved:${RESET}\n"
+printf "\n%sPreserved:%s\n" "$BOLD" "$RESET"
 warn "Project-level .bmb/ directories are NOT removed."
 warn "These live inside your project folders and contain per-project config."
 warn "Remove them manually if needed: find ~/ -name .bmb -type d"
@@ -134,4 +133,4 @@ if [ "$BACKUP_COUNT" -gt 0 ]; then
     warn "Remove them manually if no longer needed."
 fi
 
-printf "\n${GREEN}${BOLD}BMB uninstalled.${RESET}\n\n"
+printf "\n%s%sBMB uninstalled.%s\n\n" "$GREEN" "$BOLD" "$RESET"

@@ -10,12 +10,11 @@ if [ -t 1 ] && command -v tput >/dev/null 2>&1; then
     RED=$(tput setaf 1)
     GREEN=$(tput setaf 2)
     YELLOW=$(tput setaf 3)
-    CYAN=$(tput setaf 6)
     BOLD=$(tput bold)
     DIM=$(tput dim)
     RESET=$(tput sgr0)
 else
-    RED="" GREEN="" YELLOW="" CYAN="" BOLD="" DIM="" RESET=""
+    RED="" GREEN="" YELLOW="" BOLD="" DIM="" RESET=""
 fi
 
 # ── Table helpers ──────────────────────────────────────────────────────────────
@@ -40,8 +39,8 @@ print_separator() {
 }
 
 print_header() {
-    printf "\n${BOLD}%s${RESET}\n" "$1"
-    printf "  ${DIM}%-${COL_ITEM}s %-${COL_VER}s %-${COL_STATUS}s${RESET}\n" \
+    printf "\n%s%s%s\n" "$BOLD" "$1" "$RESET"
+    printf "  %s%-${COL_ITEM}s %-${COL_VER}s %-${COL_STATUS}s%s\n" "$DIM" \
         "Component" "Version" "Status"
     print_separator
 }
@@ -176,12 +175,12 @@ fi
 # ── Summary ────────────────────────────────────────────────────────────────────
 printf "\n"
 if [ "$HAS_REQUIRED_FAIL" = true ]; then
-    printf "  ${RED}${BOLD}FAIL${RESET} — One or more required checks failed.\n"
-    printf "  Run ${BOLD}install.sh${RESET} to fix missing files, or install missing tools.\n"
+    printf "  %s%sFAIL%s — One or more required checks failed.\n" "$RED" "$BOLD" "$RESET"
+    printf "  Run %sinstall.sh%s to fix missing files, or install missing tools.\n" "$BOLD" "$RESET"
     printf "\n"
     exit 1
 else
-    printf "  ${GREEN}${BOLD}ALL OK${RESET} — BMB is ready.\n"
+    printf "  %s%sALL OK%s — BMB is ready.\n" "$GREEN" "$BOLD" "$RESET"
     printf "\n"
     exit 0
 fi

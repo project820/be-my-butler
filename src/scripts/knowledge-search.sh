@@ -21,7 +21,7 @@ fi
 SAFE_QUERY="${QUERY//\'/\'\'}"
 
 ERR_FILE=$(mktemp)
-trap "rm -f '$ERR_FILE'" EXIT
+trap 'rm -f "$ERR_FILE"' EXIT
 
 echo "## Past Decisions"
 if ! sqlite3 -header -column "$DB_PATH" \

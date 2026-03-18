@@ -20,11 +20,11 @@ else
     RED="" GREEN="" YELLOW="" CYAN="" BOLD="" RESET=""
 fi
 
-ok()   { printf "  ${GREEN}✓${RESET} %s\n" "$*"; }
-fail() { printf "  ${RED}✗${RESET} %s\n" "$*"; }
-warn() { printf "  ${YELLOW}!${RESET} %s\n" "$*"; }
-info() { printf "  ${CYAN}→${RESET} %s\n" "$*"; }
-header() { printf "\n${BOLD}%s${RESET}\n" "$*"; }
+ok()   { printf "  %s✓%s %s\n" "$GREEN" "$RESET" "$*"; }
+fail() { printf "  %s✗%s %s\n" "$RED" "$RESET" "$*"; }
+warn() { printf "  %s!%s %s\n" "$YELLOW" "$RESET" "$*"; }
+info() { printf "  %s→%s %s\n" "$CYAN" "$RESET" "$*"; }
+header() { printf "\n%s%s%s\n" "$BOLD" "$*" "$RESET"; }
 
 # ── Usage ──────────────────────────────────────────────────────────────────────
 usage() {
@@ -316,7 +316,7 @@ fi
 
 # ── Done ───────────────────────────────────────────────────────────────────────
 printf "\n"
-printf "${GREEN}${BOLD}BMB installed successfully!${RESET}\n"
+printf "%s%sBMB installed successfully!%s\n" "$GREEN" "$BOLD" "$RESET"
 printf "\n"
 printf "  Installed to:\n"
 printf "    Skills:    %s/skills/bmb*/\n" "$CLAUDE_DIR"
@@ -324,9 +324,9 @@ printf "    Agents:    %s/agents/bmb-*.md\n" "$CLAUDE_DIR"
 printf "    System:    %s/bmb-system/\n" "$CLAUDE_DIR"
 printf "\n"
 if [ -n "$OPTIONAL_MISSING" ]; then
-    printf "  ${YELLOW}Optional tools not found:${RESET}%s\n" "$OPTIONAL_MISSING"
+    printf "  %sOptional tools not found:%s%s\n" "$YELLOW" "$RESET" "$OPTIONAL_MISSING"
     printf "  Install them to enable cross-model orchestration.\n"
     printf "\n"
 fi
-printf "  ${BOLD}Run /BMB-setup in your project to configure.${RESET}\n"
+printf "  %sRun /BMB-setup in your project to configure.%s\n" "$BOLD" "$RESET"
 printf "\n"
