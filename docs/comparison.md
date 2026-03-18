@@ -8,13 +8,15 @@ An honest comparison of BMB against other AI coding tools. Every tool has trade-
 
 | Capability | BMB | Aider | Composio | opencode |
 |---|---|---|---|---|
-| Multi-agent orchestration | 8 specialized agents | Single agent | Depends on integration | Single agent |
+| Multi-agent orchestration | 10 specialized agents | Single agent | Depends on integration | Single agent |
 | Cross-model verification | Blind divergent protocol | No | No | No |
 | Council debate | Multi-round adversarial | No | No | No |
 | Worktree isolation | Per-agent git worktrees | No | N/A | No |
 | Auto-learning | 3-tier (project, global, CLAUDE.md) | No | No | No |
 | Context compression | 3-layer (L1/L2/L3) | Repo map | N/A | No |
 | Session continuity | session-prep.md | Chat history | N/A | Chat history |
+| Pipeline analytics | Bird's Law severity, pattern promotion | No | No | No |
+| Live library docs | Context7 MCP integration | No | N/A | No |
 | Recipe system | 6 recipes | N/A | N/A | N/A |
 | tmux required | Yes | No | No | No |
 | Claude Code dependency | Yes | No (any LLM) | No | No |
@@ -41,6 +43,8 @@ An honest comparison of BMB against other AI coding tools. Every tool has trade-
 - Worktree isolation enables parallel execution without conflicts
 - Auto-learning accumulates project-specific rules over time
 - Session continuity preserves context across conversations
+- Analytics layer with Bird's Law severity tracking identifies recurring failure patterns
+- Consultant Coordinator model provides dual-channel user advisory + pipeline monitoring
 
 **Choose Aider when:** You want fast, interactive pair programming with minimal overhead. Tasks are small and well-defined. You trust a single model's output with your own review.
 
@@ -63,7 +67,8 @@ An honest comparison of BMB against other AI coding tools. Every tool has trade-
 - Deep Claude Code integration (agents, skills, tmux orchestration)
 - Verification pipeline with blind cross-model review
 - No external API dependencies for core functionality
-- Simpler mental model: 11 steps, 8 agents, done
+- Simpler mental model: 12 steps, 10 agents, done
+- Built-in analytics and observability for pipeline health
 
 **Choose Composio when:** You need AI agents that interact with external services. Your workflow involves API calls, ticket management, or multi-service orchestration.
 
@@ -100,7 +105,7 @@ BMB is not the right tool for every situation. Here are its real costs:
 
 ### Token Cost
 
-BMB runs multiple Claude instances plus optional cross-model calls. A full `feature` pipeline costs 150k-400k tokens. A simple `research` run is 20k-60k. For comparison, a single Aider edit might cost 5k-20k tokens.
+BMB runs multiple Claude instances (10 agents) plus optional cross-model calls. A full `feature` pipeline costs 150k-400k tokens. A simple `research` run is 20k-60k. For comparison, a single Aider edit might cost 5k-20k tokens.
 
 **Mitigation:** Choose lighter recipes (`bugfix`, `infra`) for simpler tasks. The 3-layer compression system reduces waste, but multi-agent orchestration is inherently more expensive than single-agent.
 
@@ -120,13 +125,13 @@ The entire pipeline runs inside tmux. If you are not comfortable with tmux or yo
 
 ### Latency
 
-A full 11-step pipeline takes 10-30 minutes depending on task complexity and timeouts. This is appropriate for features that would take a human developer hours, but overkill for a one-line fix.
+A full 12-step pipeline takes 10-30 minutes depending on task complexity and timeouts. This is appropriate for features that would take a human developer hours, but overkill for a one-line fix.
 
 **Mitigation:** Use `bugfix` recipe (5-10 min) for small fixes. Use `research` recipe (2-5 min) for exploration only.
 
 ### Learning Curve
 
-Understanding 8 agents, 11 steps, and 6 recipes takes time. The handoff file system, worktree lifecycle, and blind verification protocol all have specific rules.
+Understanding 10 agents, 12 steps, and 6 recipes takes time. The handoff file system, worktree lifecycle, and blind verification protocol all have specific rules.
 
 **Mitigation:** Start with `research` recipe to learn brainstorming. Graduate to `bugfix` for a short pipeline. Use `feature` once comfortable.
 

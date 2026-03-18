@@ -6,11 +6,13 @@
 
 **Multi-agent orchestration for Claude Code with cross-model blind verification**
 
+[![Version](https://img.shields.io/badge/version-0.3.5-blue.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-compatible-blueviolet.svg)](https://docs.anthropic.com/en/docs/claude-code)
-[![Agents](https://img.shields.io/badge/agents-8-orange.svg)](#the-8-agents)
-[![Steps](https://img.shields.io/badge/pipeline_steps-11-teal.svg)](#the-11-step-pipeline)
+[![Agents](https://img.shields.io/badge/agents-10-orange.svg)](#the-10-agents)
+[![Steps](https://img.shields.io/badge/pipeline_steps-12-teal.svg)](#the-12-step-pipeline)
+[![What's New](https://img.shields.io/badge/what's_new-v0.3.5-green.svg)](WHATS-NEW-0.3.5.md)
 
 <!-- TODO: Replace with asciinema recording -->
 <!-- [![asciicast](assets/demo.svg)](https://asciinema.org/a/TODO) -->
@@ -33,7 +35,7 @@ Solo AI coding assistants are fast — but they hallucinate, skip edge cases, an
 | **"Works for me" testing** | Divergent framing — verifier receives a deliberately reworded spec to catch assumption leaks |
 | **Lost knowledge** | FTS5 knowledge base + auto-learning promotes recurring lessons automatically |
 
-> BMB doesn't replace your judgment — it gives you **8 opinionated experts** who argue before you decide.
+> BMB doesn't replace your judgment — it gives you **10 opinionated experts** who argue before you decide.
 
 ---
 
@@ -53,13 +55,13 @@ bmb doctor
 /BMB
 ```
 
-That's it. BMB registers its agents, skills, and scripts into your Claude Code environment. Type `/BMB` in any project to start the full 11-step pipeline.
+That's it. BMB registers its agents, skills, and scripts into your Claude Code environment. Type `/BMB` in any project to start the full 12-step pipeline.
 
 > **Optional for cross-model verification:** Install [Codex CLI](https://github.com/openai/codex) and/or [Gemini CLI](https://github.com/google-gemini/gemini-cli) to unlock blind verification with a second model.
 
 ---
 
-## The 11-Step Pipeline
+## The 12-Step Pipeline
 
 Every `/BMB` run walks through these stages. Steps adapt based on the selected **recipe** — some steps are skipped or shortened for lighter workflows.
 
@@ -74,7 +76,9 @@ flowchart TD
     G --> H["⑧ Test"]
     H --> I["⑨ Verify"]
     I --> J["⑩ Simplify"]
-    J --> K["⑪ Learn"]
+    J --> K["⑩.⑤ Analyst"]
+    K --> L["⑪ Retrospective"]
+    L --> M["⑫ Cleanup"]
 
     style A fill:#1a1a2e,stroke:#e94560,color:#fff
     style B fill:#1a1a2e,stroke:#e94560,color:#fff
@@ -86,7 +90,9 @@ flowchart TD
     style H fill:#0f3460,stroke:#53a8b6,color:#fff
     style I fill:#533483,stroke:#e94560,color:#fff
     style J fill:#533483,stroke:#e94560,color:#fff
-    style K fill:#533483,stroke:#e94560,color:#fff
+    style K fill:#1a3a2e,stroke:#22c55e,color:#fff
+    style L fill:#1a3a2e,stroke:#22c55e,color:#fff
+    style M fill:#533483,stroke:#e94560,color:#fff
 ```
 
 | Step | Agent | What Happens |
@@ -101,7 +107,9 @@ flowchart TD
 | **8** | Tester | **Test** — writes and runs tests with coverage targets |
 | **9** | Verifier | **Verify** — cross-model blind review with divergent spec framing |
 | **10** | Simplifier | **Simplify** — removes dead code, flattens unnecessary abstractions |
-| **11** | Lead | **Learn** — extracts lessons into the 3-tier auto-learning system |
+| **10.5** | Analyst | **Retrospective Analysis** — queries `analytics.db`, classifies events by Bird's Law severity, identifies promotion candidates from `pattern_counts` |
+| **11** | Lead | **Retrospective** — bmb_learn calls, analyst report relay, promotion check |
+| **12** | Lead | **Cleanup** — commit, push, session-prep, carry-forward, worktree cleanup |
 
 ---
 
@@ -146,7 +154,21 @@ Long pipelines bleed context. BMB compresses at three layers: **intra-step** (wi
 <td>
 
 ### Configurable Recipes
-Not every task needs 11 steps. Pick a **recipe** to skip what you don't need — a bugfix skips brainstorm and council; a research task skips execution entirely.
+Not every task needs 12 steps. Pick a **recipe** to skip what you don't need — a bugfix skips brainstorm and council; a research task skips execution entirely.
+
+</td>
+</tr>
+<tr>
+<td>
+
+### Analytics Layer + Bird's Law Severity
+Every pipeline run emits structured telemetry to `analytics.db`. The Analyst (Step 10.5) queries `pattern_counts` to find recurring failures and classifies events by **Bird's Law severity** (critical / warn / info). Promotion candidates surface automatically after 2+ occurrences.
+
+</td>
+<td>
+
+### Context7 for All Implementation Agents
+Architect, Executor, and Frontend agents query **live library documentation** via Context7 MCP before writing code. No stale API assumptions — agents always write against the current SDK.
 
 </td>
 </tr>
@@ -158,12 +180,12 @@ Not every task needs 11 steps. Pick a **recipe** to skip what you don't need —
 
 | Recipe | Steps Used | Best For |
 |---|---|---|
-| `feature` | All 11 | New features, large changes |
-| `bugfix` | 1 → 5 → 6 → 8 → 9 → 10 → 11 | Bug investigation and fix |
-| `refactor` | 1 → 4 → 5 → 6 → 8 → 9 → 10 → 11 | Code restructuring |
-| `research` | 1 → 2 → 3 → 11 | Exploration, spikes, design decisions |
-| `review` | 1 → 9 → 11 | Code review only |
-| `infra` | 1 → 4 → 5 → 6 → 8 → 9 → 11 | CI/CD, tooling, config changes |
+| `feature` | All 12 | New features, large changes |
+| `bugfix` | 1 → 5 → 6 → 8 → 9 → 10 → 11 → 12 | Bug investigation and fix |
+| `refactor` | 1 → 4 → 5 → 6 → 8 → 9 → 10 → 11 → 12 | Code restructuring |
+| `research` | 1 → 2 → 3 → 11 → 12 | Exploration, spikes, design decisions |
+| `review` | 1 → 9 → 11 → 12 | Code review only |
+| `infra` | 1 → 4 → 5 → 6 → 8 → 9 → 11 → 12 | CI/CD, tooling, config changes |
 
 ---
 
@@ -171,25 +193,28 @@ Not every task needs 11 steps. Pick a **recipe** to skip what you don't need —
 
 | Command | Description |
 |---|---|
-| `/BMB` | Full 11-step pipeline — select a recipe interactively |
+| `/BMB` | Full 12-step pipeline — select a recipe interactively |
 | `/BMB-brainstorm` | Brainstorm + Council only — explore ideas without executing |
 | `/BMB-refactoring` | Refactor recipe shortcut — skip brainstorm, go straight to architecture |
 | `/BMB-setup` | First-time project setup — generates `session-prep.md` and config |
+| `/BMB-status` | Project/idea dashboard — stale idea nudges, lifecycle overview |
 
 ---
 
-## The 8 Agents
+## The 10 Agents
 
 | Agent | Role | Model |
 |---|---|---|
 | **Lead** | Orchestrator, decision-maker, session continuity | Claude |
-| **Consultant** | Brainstorm, devil's advocate, council debate | Claude (i18n: en/ko/ja/zh-TW) |
-| **Architect** | System design, file tree, contracts | Claude |
-| **Executor** | Implementation in isolated worktree | Claude |
-| **Frontend** | UI/UX implementation | Claude |
+| **Consultant** | Coordinator: user advisor + pipeline monitor. Dual-channel (feed + SendMessage). Post-briefing analysis after blind phase. | Claude (i18n: en/ko/ja/zh-TW) |
+| **Architect** | System design, file tree, contracts. Queries Context7 for live library docs. | Claude |
+| **Executor** | Implementation in isolated worktree. Queries Context7 before writing. | Claude |
+| **Frontend** | UI/UX implementation. Queries Context7 before writing. | Claude |
 | **Tester** | Test writing and execution | Claude |
 | **Verifier** | Cross-model blind review | Codex / Gemini / Claude |
 | **Simplifier** | Dead code removal, complexity reduction | Claude |
+| **Analyst** | Retrospective analytics: Bird's Law severity classification, `pattern_counts` promotion candidates | Claude (bypassPermissions, read-only) |
+| **Monitor** | Lead-owned lightweight observer: metadata-only stall detection, timeout warnings, blind phase filtering. Optional dependency — never blocks pipeline. | Claude Haiku |
 
 > The **Writer** agent handles documentation generation as a sub-role of the pipeline.
 
@@ -215,21 +240,60 @@ Run `bmb doctor` after installation to verify all dependencies.
 
 Explore the full pipeline visually:
 
-**[View Interactive Docs →](https://be-my-butler.github.io/be-my-butler/)**
+**[View Interactive Docs →](https://project820.github.io/be-my-butler/)**
+
+Mobile-optimized summary pages (7-card vertical scroll, 4 locales):
+
+| Language | URL |
+|---|---|
+| English | [m.html](https://project820.github.io/be-my-butler/m.html) |
+| 한국어 | [m.ko.html](https://project820.github.io/be-my-butler/m.ko.html) |
+| 日本語 | [m.ja.html](https://project820.github.io/be-my-butler/m.ja.html) |
+| 繁體中文 | [m.zh-TW.html](https://project820.github.io/be-my-butler/m.zh-TW.html) |
 
 ---
 
 ## Project Structure
 
 ```
-~/.claude/
-├── skills/bmb/          # 4 slash command skills
-├── agents/bmb-*.md      # 8 agent definitions
-└── bmb-system/
-    ├── config/          # Recipe configs, model assignments
-    ├── scripts/         # cross-model-run.sh, bmb-learn.sh
-    └── templates/       # Session prep, handoff templates
+~/Projects/bmb/              # Source of truth (GitHub repo)
+├── skills/bmb*/             # 5 slash command skills
+├── agents/bmb-*.md          # 10 agent definitions
+├── bmb-system/
+│   ├── config/              # defaults.json (v2)
+│   ├── scripts/             # cross-model-run.sh, bmb-config.sh, bmb-ideas.sh, bmb-analytics.sh, ...
+│   └── plans/               # Version release plans
+└── docs/                    # Architecture, configuration, troubleshooting
+
+~/.claude/                   # Runtime (symlinks to repo)
+├── skills/bmb* → repo       # Symlinked skills
+├── agents/ → repo            # Symlinked agents
+└── bmb-system/ → repo        # Symlinked runtime
+
+.bmb/                        # Per-project runtime directory
+├── config.json              # Project-local config (merged from 3 layers)
+├── analytics/
+│   └── analytics.db         # SQLite: sessions, events, pattern_counts
+├── handoffs/
+│   └── analyst-report.md    # Step 10.5 output
+└── sessions/{id}/
+    ├── carry-forward.md     # Atomic session continuity
+    └── plan-review.md       # Cross-model plan critique
 ```
+
+---
+
+## What's New in v0.3.5
+
+**Lead Retrospective Enforcement + Cross-Model Reliability** — closes the learning loop and fixes silent cross-model failures on macOS.
+
+| Capability | Description |
+|---|---|
+| **Step 11: Lead Retrospective** | New dedicated retrospective step before Cleanup. Forces `bmb_learn` (min 1 per session), Analyst report relay, promotion check, and auto-memory save. Pipeline is now **12 steps**. |
+| **Portable `timeout` fallback** | `cross-model-run.sh` now defines a `perl`-based `timeout()` shim when GNU coreutils is absent (macOS default). Eliminates silent exit-127 failures under `set -euo pipefail`. |
+| **Pre-flight check** | `_codex_preflight()` validates Codex before each cross-model call; failure records an incident and degrades immediately instead of hanging for 10+ minutes. |
+| **stderr separation** | Codex stdout and stderr captured to separate files; stderr scanned for auth/error patterns and logged to incident spool. |
+| **Exit code taxonomy** | Cross-model exit codes refined: 0=success, 1=general, 2=timeout, 3=killed, 4=auth failure, 5=preflight failure, 6=stall detected. |
 
 ---
 

@@ -27,7 +27,13 @@ Run `/BMB-setup` to generate a config file interactively.
   "timeouts": {
     "claude_agent": 1200,      // Executor, Tester, Verifier, Simplifier
     "cross_model": 3600,       // Cross-model CLI operations
-    "writer": 600              // Writer agent
+    "writer": 600,             // Writer agent
+    "analyst": 300             // Analyst agent (Step 10.5)
+  },
+
+  "analytics": {
+    "enabled": true,           // true | false — record pipeline telemetry
+    "db_path": ".bmb/analytics/analytics.db"  // SQLite database location
   },
 
   "consultant": {
@@ -68,6 +74,7 @@ Run `/BMB-setup` to generate a config file interactively.
 | `claude_agent` | integer | `1200` | Executor, Tester, Verifier, Simplifier agents |
 | `cross_model` | integer | `3600` | All `cross-model-run.sh` invocations |
 | `writer` | integer | `600` | Writer agent (documentation updates) |
+| `analyst` | integer | `300` | Analyst agent (Step 10.5 retrospective) |
 
 All values are in **seconds**.
 
@@ -83,6 +90,24 @@ Available styles:
 - `"concise"` -- minimal responses, bullet points only
 - `"socratic"` -- asks probing questions, challenges assumptions
 - `"custom"` -- uses the `custom_style` field verbatim as the personality prompt
+
+#### `analytics`
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | boolean | `true` | Whether to record pipeline telemetry to `analytics.db` |
+| `db_path` | string | `".bmb/analytics/analytics.db"` | SQLite database path for analytics data |
+
+When enabled, `bmb-analytics.sh` records session start/end, step durations, agent events, and pattern counts. The Analyst agent (Step 10.5) queries this database to classify events by Bird's Law severity and identify promotion candidates.
+
+To disable analytics (e.g., for CI or ephemeral environments):
+```json
+{
+  "analytics": {
+    "enabled": false
+  }
+}
+```
 
 #### `notifications.telegram`
 
@@ -128,6 +153,7 @@ BMB sends notifications at three points: pipeline start, user approval needed, p
 | Executor times out on large codebases | `claude_agent` | 1800-2400s |
 | Cross-model never completes | `cross_model` | 5400-7200s |
 | Writer times out on many docs | `writer` | 900-1200s |
+| Analyst times out on large analytics.db | `analyst` | 600s |
 | All agents timing out | All | Multiply by 2x |
 
 ### When to Decrease Timeouts
@@ -137,6 +163,7 @@ BMB sends notifications at three points: pipeline start, user approval needed, p
 | Small bugfixes | `claude_agent` | 600s |
 | Fast cross-model (Gemini) | `cross_model` | 1800s |
 | Simple doc updates | `writer` | 300s |
+| Small projects with few patterns | `analyst` | 120s |
 
 ### Per-Track Timeout Behavior
 

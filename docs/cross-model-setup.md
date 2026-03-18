@@ -209,6 +209,37 @@ To fix: install the configured provider CLI and re-authenticate.
 
 BMB always invokes Codex with `--full-auto`. This is required for non-interactive pipeline execution. Do not use `--xhigh` or other interactive flags.
 
+---
+
+## Context7 MCP Setup
+
+BMB's Architect, Executor, and Frontend agents query live library documentation via **Context7 MCP** before writing code. This ensures agents write against current SDK APIs rather than stale training data.
+
+### 1. Add Context7 to Claude Code MCP settings
+
+In `~/.claude/mcp.json` (or your project's `.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@context7/mcp@latest"]
+    }
+  }
+}
+```
+
+### 2. Test
+
+Restart Claude Code and verify Context7 is listed as an available MCP server. The agents will automatically use `mcp__context7__resolve-library-id` and `mcp__context7__query-docs` when encountering unfamiliar libraries.
+
+### 3. When Context7 is unavailable
+
+If Context7 MCP is not configured, agents fall back to their training data. This is safe but may produce outdated API usage for recently updated libraries. No pipeline step is skipped.
+
+---
+
 ### Model Selection
 
 Use `"LATEST"` unless you have a specific reason to pin a model. Pinning avoids surprises when the provider updates their default, but you miss out on improvements.

@@ -103,9 +103,13 @@ for agent in architect consultant executor frontend simplifier tester verifier w
     check_file "$CLAUDE_DIR/agents/bmb-${agent}.md" "agent: bmb-${agent}.md"
 done
 
+# Agents (v0.2: analyst added)
+check_file "$CLAUDE_DIR/agents/bmb-analyst.md"       "agent: bmb-analyst.md"
+
 # Scripts
 check_file "$BMB_SYS/scripts/cross-model-run.sh"    "script: cross-model-run.sh"
 check_file "$BMB_SYS/scripts/bmb-learn.sh"           "script: bmb-learn.sh"
+check_file "$BMB_SYS/scripts/bmb-analytics.sh"       "script: bmb-analytics.sh"
 check_file "$BMB_SYS/scripts/knowledge-index.sh"     "script: knowledge-index.sh"
 check_file "$BMB_SYS/scripts/knowledge-search.sh"    "script: knowledge-search.sh"
 check_file "$BMB_SYS/scripts/conversation-logger.py" "script: conversation-logger.py"
@@ -133,6 +137,7 @@ check_executable() {
 
 check_executable "$BMB_SYS/scripts/cross-model-run.sh"  "cross-model-run.sh"
 check_executable "$BMB_SYS/scripts/bmb-learn.sh"        "bmb-learn.sh"
+check_executable "$BMB_SYS/scripts/bmb-analytics.sh"    "bmb-analytics.sh"
 check_executable "$BMB_SYS/scripts/knowledge-index.sh"  "knowledge-index.sh"
 check_executable "$BMB_SYS/scripts/knowledge-search.sh" "knowledge-search.sh"
 
@@ -170,6 +175,25 @@ if command -v python3 >/dev/null 2>&1; then
     else
         print_row "python3 stdlib imports" "failed" "WARN"
     fi
+fi
+
+# Context7 MCP check (optional)
+if [ -f "$HOME/.claude/mcp.json" ]; then
+    if grep -q '"context7"' "$HOME/.claude/mcp.json" 2>/dev/null; then
+        print_row "Context7 MCP" "configured" "OK"
+    else
+        print_row "Context7 MCP (live docs)" "not configured" "WARN"
+    fi
+else
+    print_row "Context7 MCP (live docs)" "mcp.json missing" "WARN"
+fi
+
+# Analytics DB check (informational)
+if [ -f ".bmb/analytics/analytics.db" ]; then
+    _db_size="$(du -h .bmb/analytics/analytics.db 2>/dev/null | awk '{print $1}')"
+    print_row "analytics.db" "$_db_size" "OK"
+else
+    print_row "analytics.db" "not yet created" "WARN"
 fi
 
 # ── Summary ────────────────────────────────────────────────────────────────────

@@ -1,31 +1,77 @@
-# OS
+# Whitelist: only track be-my-butler project files
+*
+
+# Project infrastructure
+!.gitignore
+!.markdownlint.json
+!.github/
+!.github/**
+!LICENSE
+!README.md
+!VERSION
+!CHANGELOG.md
+!CONTRIBUTING.md
+!WHATS-NEW-*.md
+!install.sh
+!uninstall.sh
+!doctor.sh
+
+# Agents (BMB only)
+!agents/
+!agents/bmb-*.md
+
+# Skills (BMB only)
+!skills/
+!skills/bmb/
+!skills/bmb/**
+!skills/bmb-brainstorm/
+!skills/bmb-brainstorm/**
+!skills/bmb-setup/
+!skills/bmb-setup/**
+!skills/bmb-status/
+!skills/bmb-status/**
+!skills/bmb-refactoring/
+!skills/bmb-refactoring/**
+
+# BMB system (scripts, config, bin, plans)
+!bmb-system/
+!bmb-system/**
+
+# Tests, docs
+!tests/
+!tests/**
+!docs/
+!docs/**
+
+# ─── Explicitly IGNORE (runtime, temp, secrets) ───
+
+# BMB runtime data (NEVER commit)
+.bmb/
+bmb-system/runtime/
+bmb-system/.bmb/
+
+# Temp/partial files from codex shim
+*.partial
+*.tmp.*
+
+# OS artifacts
 .DS_Store
 Thumbs.db
-
-# Editor
-*.swp
-*.swo
-*~
-.idea/
-.vscode/
 
 # Python
 __pycache__/
 *.pyc
 
-# Node (demo project)
-node_modules/
-npm-debug.log*
-
-# BMB runtime (never commit)
-.bmb/
-TODO.md
+# Editor
+*.swp
+*.swo
+*~
 
 # Claude Code
 CLAUDE.md
 .claude/
 
-# Environment
+# Environment / secrets
 .env
 .env.*
 !.env.example

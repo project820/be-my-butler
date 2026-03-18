@@ -1,0 +1,274 @@
+#!/usr/bin/env python3
+"""BMB Codex Shim — transparent wrapper around real codex CLI.
+
+Auto-records: auth failures, stall detection, timeout, exit codes.
+Writes incidents to NDJSON spool (NOT SQLite directly).
+CPU is auxiliary signal only (not sole stall indicator).
+Large output: streamed to temp file, not RAM buffered.
+"""
+
+import os
+import sys
+import signal
+import shutil
+import subprocess
+import tempfile
+import time
+import json
+from pathlib import Path
+
+# --- Configuration ---
+SPOOL_DIR = Path(os.environ.get(
+    "BMB_SPOOL_DIR",
+    os.path.expanduser("~/.claude/bmb-system/runtime")
+))
+SPOOL_FILE = SPOOL_DIR / "external-incidents.ndjson"
+STALL_CHECK_INTERVAL = 30   # seconds between stall checks
+STALL_IDLE_THRESHOLD = 180  # seconds without output = possible stall
+CPU_IDLE_THRESHOLD = 5.0    # % CPU below this is "idle" (auxiliary only)
+
+
+def find_real_codex() -> str:
+    """Find the real codex binary, skipping this shim."""
+    shim_dir = os.path.dirname(os.path.abspath(__file__))
+    for p in os.environ.get("PATH", "").split(os.pathsep):
+        candidate = os.path.join(p, "codex")
+        if p == shim_dir:
+            continue
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+    return ""
+
+
+def record_incident(event_key: str, detail: str = "", exit_code: int = 0):
+    """Append one NDJSON line to the spool file."""
+    SPOOL_DIR.mkdir(parents=True, exist_ok=True)
+    # Sanitize detail
+    detail = _sanitize(detail)
+    obj = {
+        "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "ts_epoch": int(time.time()),
+        "event_key": event_key,
+        "severity": _classify(event_key, exit_code),
+        "exit_code": exit_code,
+        "source": "codex-shim",
+        "detail": detail[:2000],  # cap detail length
+    }
+    try:
+        with open(SPOOL_FILE, "a") as f:
+            f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+    except OSError:
+        pass  # best-effort; don't block codex execution
+
+
+def _sanitize(text: str) -> str:
+    """Strip PII/tokens from text."""
+    import re
+    text = re.sub(r"Bearer [A-Za-z0-9_.\-]+", "Bearer [REDACTED]", text)
+    text = re.sub(r"[Ss]k-[A-Za-z0-9]{20,}", "sk-[REDACTED]", text)
+    text = re.sub(
+        r"[Aa]pi[_-]?[Kk]ey[=: ]*[A-Za-z0-9_.\-]{8,}",
+        "api_key=[REDACTED]", text
+    )
+    text = re.sub(
+        r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
+        "[EMAIL_REDACTED]", text
+    )
+    home = os.path.expanduser("~")
+    text = text.replace(home, "~")
+    return text
+
+
+def _classify(event_key: str, exit_code: int = 0) -> str:
+    """Classify severity."""
+    if "auth" in event_key:
+        return "error"
+    if "cli_missing" in event_key:
+        return "error"
+    if "crash" in event_key:
+        return "critical"
+    if "stall" in event_key or "timeout" in event_key:
+        return "warn"
+    if "recovery" in event_key and "failed" in event_key:
+        return "error"
+    if "recovery" in event_key:
+        return "info"
+    if "nonzero" in event_key:
+        return "error" if exit_code > 128 else "warn"
+    return "info"
+
+
+def get_cpu_percent(pid: int) -> float:
+    """Get CPU% for a PID. Auxiliary signal only."""
+    try:
+        result = subprocess.run(
+            ["ps", "-p", str(pid), "-o", "%cpu="],
+            capture_output=True, text=True, timeout=5
+        )
+        return float(result.stdout.strip())
+    except (ValueError, subprocess.TimeoutExpired, FileNotFoundError):
+        return -1.0  # unknown
+
+
+def main():
+    real_codex = find_real_codex()
+    if not real_codex:
+        record_incident("codex_cli_missing", "codex binary not found in PATH")
+        print("ERROR: codex CLI not found in PATH (BMB shim)", file=sys.stderr)
+        sys.exit(1)
+
+    # Pass through all args
+    args = [real_codex] + sys.argv[1:]
+
+    # Determine if output should be captured or passed through
+    # For `exec` subcommand with `-o` or piped output, stream to temp file
+    is_exec = "exec" in sys.argv[1:3] if len(sys.argv) > 1 else False
+
+    start_time = time.time()
+    last_output_time = start_time
+    proc = None
+    output_file = None
+    exit_code = 0
+
+    try:
+        if is_exec and not sys.stdout.isatty():
+            # Non-TTY: stream large output to temp file, then replay
+            output_file = tempfile.NamedTemporaryFile(
+                mode="w", prefix="bmb-codex-", suffix=".out",
+                delete=False
+            )
+            proc = subprocess.Popen(
+                args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                bufsize=0,
+            )
+
+            # Stream stdout to temp file with non-blocking reads for stall detection
+            import select
+            while proc.poll() is None:
+                ready, _, _ = select.select(
+                    [proc.stdout], [], [], STALL_CHECK_INTERVAL
+                )
+                if ready:
+                    chunk = proc.stdout.read(4096)
+                    if not chunk:
+                        break
+                    output_file.write(chunk.decode("utf-8", errors="replace"))
+                    output_file.flush()
+                    last_output_time = time.time()
+                else:
+                    # No data within interval — check for stall
+                    idle_sec = time.time() - last_output_time
+                    if idle_sec > STALL_IDLE_THRESHOLD:
+                        cpu = get_cpu_percent(proc.pid)
+                        detail = f"idle_sec={int(idle_sec)}"
+                        if cpu >= 0:
+                            detail += f" cpu_pct={cpu}"
+                        if cpu >= 0 and cpu < CPU_IDLE_THRESHOLD:
+                            detail += " cpu_idle=true"
+                        record_incident("codex_exec_stalled", detail)
+            # Drain remaining stdout after process exits
+            remainder = proc.stdout.read()
+            if remainder:
+                output_file.write(remainder.decode("utf-8", errors="replace"))
+                output_file.flush()
+
+            proc.wait()
+            exit_code = proc.returncode
+            output_file.close()
+
+            # Replay to stdout
+            with open(output_file.name, "r") as f:
+                for line in f:
+                    sys.stdout.write(line)
+
+        else:
+            # TTY or non-exec: transparent pass-through preserving TTY
+            proc = subprocess.Popen(args)
+
+            # Background stall check via polling (no output capture in TTY mode)
+            while proc.poll() is None:
+                time.sleep(STALL_CHECK_INTERVAL)
+                elapsed = time.time() - start_time
+                # In TTY mode we can't track output, so only use elapsed + CPU
+                if elapsed > STALL_IDLE_THRESHOLD:
+                    cpu = get_cpu_percent(proc.pid)
+                    # CPU alone is NOT sufficient for stall — only log if very idle
+                    if cpu >= 0 and cpu < CPU_IDLE_THRESHOLD:
+                        # Log as observation, not definitive stall
+                        record_incident(
+                            "codex_exec_stalled",
+                            f"elapsed_sec={int(elapsed)} cpu_pct={cpu} mode=tty_auxiliary"
+                        )
+
+            exit_code = proc.returncode
+
+    except KeyboardInterrupt:
+        if proc and proc.poll() is None:
+            proc.send_signal(signal.SIGTERM)
+            try:
+                proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+        exit_code = 130  # standard SIGINT exit code
+
+    finally:
+        elapsed = time.time() - start_time
+
+        # Clean up temp file
+        if output_file and os.path.exists(output_file.name):
+            try:
+                os.unlink(output_file.name)
+            except OSError:
+                pass
+
+        # Record exit-code-based incidents
+        if exit_code == 0:
+            # Success — if there was a previous auth failure, record recovery
+            pass
+        elif exit_code == 1:
+            # Check stderr for auth indicators
+            stderr_text = ""
+            if proc and hasattr(proc, "stderr") and proc.stderr:
+                try:
+                    stderr_text = proc.stderr.read().decode("utf-8", errors="replace")[:1000]
+                except Exception:
+                    pass
+            if "401" in stderr_text or "auth" in stderr_text.lower():
+                record_incident(
+                    "codex_auth_401",
+                    f"exit=1 elapsed={int(elapsed)}s stderr_hint={stderr_text[:200]}",
+                    exit_code
+                )
+            else:
+                record_incident(
+                    "codex_exec_nonzero",
+                    f"exit={exit_code} elapsed={int(elapsed)}s",
+                    exit_code
+                )
+        elif exit_code == 124 or exit_code == 137:
+            # timeout (124) or killed (137)
+            record_incident(
+                "codex_review_timeout",
+                f"exit={exit_code} elapsed={int(elapsed)}s",
+                exit_code
+            )
+        elif exit_code > 128:
+            record_incident(
+                "codex_exec_nonzero",
+                f"exit={exit_code} signal={exit_code - 128} elapsed={int(elapsed)}s",
+                exit_code
+            )
+        elif exit_code != 0:
+            record_incident(
+                "codex_exec_nonzero",
+                f"exit={exit_code} elapsed={int(elapsed)}s",
+                exit_code
+            )
+
+    sys.exit(exit_code)
+
+
+if __name__ == "__main__":
+    main()

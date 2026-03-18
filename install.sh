@@ -67,11 +67,11 @@ BRANCH="${BMB_BRANCH:-$BRANCH}"
 
 # ── Detect source mode ─────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-SRC_DIR=""
+REPO_DIR=""
 TEMP_DIR=""
 
-if [ -d "$SCRIPT_DIR/src/skills" ] && [ -d "$SCRIPT_DIR/src/agents" ]; then
-    SRC_DIR="$SCRIPT_DIR/src"
+if [ -d "$SCRIPT_DIR/skills/bmb" ] && [ -d "$SCRIPT_DIR/agents" ] && [ -d "$SCRIPT_DIR/bmb-system" ]; then
+    REPO_DIR="$SCRIPT_DIR"
     info "Installing from local repository: $SCRIPT_DIR"
 else
     header "Downloading BMB from GitHub..."
@@ -85,11 +85,11 @@ else
     fi
     # tar extracts to {repo-name}-{branch}/
     EXTRACTED="$(find "$TEMP_DIR" -maxdepth 1 -type d ! -path "$TEMP_DIR" | head -1)"
-    if [ -z "$EXTRACTED" ] || [ ! -d "$EXTRACTED/src" ]; then
-        fail "Downloaded archive does not contain expected src/ directory."
+    if [ -z "$EXTRACTED" ] || [ ! -d "$EXTRACTED/agents" ]; then
+        fail "Downloaded archive does not contain expected agents/ directory."
         exit 1
     fi
-    SRC_DIR="$EXTRACTED/src"
+    REPO_DIR="$EXTRACTED"
     ok "Downloaded successfully"
 fi
 
@@ -136,16 +136,16 @@ fi
 header "Validating source files..."
 
 validate_exists() {
-    if [ ! -e "$SRC_DIR/$1" ]; then
-        fail "Missing source file: src/$1"
+    if [ ! -e "$REPO_DIR/$1" ]; then
+        fail "Missing source file: $1"
         return 1
     fi
 }
 
 VALIDATION_OK=true
 for f in \
-    skills/be-my-butler/SKILL.md \
-    skills/be-my-butler/bmb.md \
+    skills/bmb/SKILL.md \
+    skills/bmb/bmb.md \
     skills/bmb-brainstorm/SKILL.md \
     skills/bmb-refactoring/SKILL.md \
     skills/bmb-setup/SKILL.md \
@@ -157,14 +157,16 @@ for f in \
     agents/bmb-tester.md \
     agents/bmb-verifier.md \
     agents/bmb-writer.md \
-    scripts/cross-model-run.sh \
-    scripts/bmb-learn.sh \
-    scripts/knowledge-index.sh \
-    scripts/knowledge-search.sh \
-    scripts/conversation-logger.py \
-    config/defaults.json \
-    templates/session-prep.md \
-    templates/handoff-frontmatter.md
+    agents/bmb-analyst.md \
+    bmb-system/scripts/cross-model-run.sh \
+    bmb-system/scripts/bmb-analytics.sh \
+    bmb-system/scripts/bmb-learn.sh \
+    bmb-system/scripts/knowledge-index.sh \
+    bmb-system/scripts/knowledge-search.sh \
+    bmb-system/scripts/conversation-logger.py \
+    bmb-system/config/defaults.json \
+    bmb-system/templates/session-prep.md \
+    bmb-system/templates/handoff-frontmatter.md
 do
     if ! validate_exists "$f"; then
         VALIDATION_OK=false
@@ -220,20 +222,16 @@ fi
 header "Installing BMB..."
 
 # Skills
-for skill_dir in be-my-butler bmb-brainstorm bmb-refactoring bmb-setup; do
+for skill_dir in bmb bmb-brainstorm bmb-refactoring bmb-setup; do
     target="$CLAUDE_DIR/skills/$skill_dir"
-    # Map be-my-butler source dir to bmb target dir
-    if [ "$skill_dir" = "be-my-butler" ]; then
-        target="$CLAUDE_DIR/skills/bmb"
-    fi
     mkdir -p "$target"
-    cp "$SRC_DIR/skills/$skill_dir/"* "$target/"
-    ok "Installed skill: $skill_dir → $(basename "$target")/"
+    cp "$REPO_DIR/skills/$skill_dir/"* "$target/"
+    ok "Installed skill: $skill_dir/"
 done
 
 # Agents
 mkdir -p "$CLAUDE_DIR/agents"
-for agent_file in "$SRC_DIR"/agents/bmb-*.md; do
+for agent_file in "$REPO_DIR"/agents/bmb-*.md; do
     cp "$agent_file" "$CLAUDE_DIR/agents/"
     ok "Installed agent: $(basename "$agent_file")"
 done
@@ -242,21 +240,21 @@ done
 BMB_SYS="$CLAUDE_DIR/bmb-system"
 mkdir -p "$BMB_SYS/scripts" "$BMB_SYS/config" "$BMB_SYS/templates"
 
-for script in cross-model-run.sh bmb-learn.sh knowledge-index.sh knowledge-search.sh conversation-logger.py; do
-    cp "$SRC_DIR/scripts/$script" "$BMB_SYS/scripts/"
+for script in cross-model-run.sh bmb-learn.sh bmb-analytics.sh knowledge-index.sh knowledge-search.sh conversation-logger.py; do
+    cp "$REPO_DIR/bmb-system/scripts/$script" "$BMB_SYS/scripts/"
 done
 ok "Installed scripts"
 
-cp "$SRC_DIR/config/defaults.json" "$BMB_SYS/config/"
+cp "$REPO_DIR/bmb-system/config/defaults.json" "$BMB_SYS/config/"
 ok "Installed config"
 
-cp "$SRC_DIR/templates/"*.md "$BMB_SYS/templates/"
+cp "$REPO_DIR/bmb-system/templates/"*.md "$BMB_SYS/templates/"
 ok "Installed templates"
 
 # Copy installer scripts into bmb-system for future use
 for installer in install.sh doctor.sh uninstall.sh; do
-    if [ -f "$SCRIPT_DIR/$installer" ]; then
-        cp "$SCRIPT_DIR/$installer" "$BMB_SYS/"
+    if [ -f "$REPO_DIR/$installer" ]; then
+        cp "$REPO_DIR/$installer" "$BMB_SYS/"
     fi
 done
 

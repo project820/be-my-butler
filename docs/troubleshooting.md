@@ -148,6 +148,83 @@ The cross-model CLI may return malformed output if the prompt is too long or con
 
 ---
 
+## Analytics Issues
+
+### analytics.db Not Found
+
+The Analyst agent (Step 10.5) expects `analytics.db` at `.bmb/analytics/analytics.db`. If this file does not exist, the first pipeline run creates it automatically via `bmb-analytics.sh`.
+
+**Fix -- manually initialize:**
+```bash
+mkdir -p .bmb/analytics
+~/.claude/bmb-system/scripts/bmb-analytics.sh init
+```
+
+### Analyst Agent Timeout
+
+The Analyst has a short default timeout (300s) since it only queries the database. If your `analytics.db` has grown large (many pipeline runs), increase the timeout:
+
+```json
+{
+  "timeouts": {
+    "analyst": 600
+  }
+}
+```
+
+### analytics.db Corruption
+
+Similar to `knowledge.db`, a hard crash during write can corrupt the SQLite database.
+
+**Fix -- delete and let the next pipeline re-create it:**
+```bash
+rm -f .bmb/analytics/analytics.db
+```
+
+Historical telemetry will be lost, but the pipeline continues normally. New data is recorded from the next run.
+
+### Analytics Disabled But Analyst Still Runs
+
+If `analytics.enabled` is `false` in config, the Analyst step is skipped automatically. If it still appears to run, verify your config is valid JSON:
+
+```bash
+python3 -c "import json; json.load(open('.bmb/config.json'))"
+```
+
+---
+
+## Context7 Issues
+
+### Context7 MCP Not Connecting
+
+The Architect, Executor, and Frontend agents query Context7 for live library docs. If Context7 is not available, agents fall back to training data.
+
+**Fix:**
+1. Verify Context7 is configured in `~/.claude/mcp.json`:
+   ```json
+   {
+     "mcpServers": {
+       "context7": {
+         "command": "npx",
+         "args": ["-y", "@context7/mcp@latest"]
+       }
+     }
+   }
+   ```
+2. Restart Claude Code after adding the MCP config
+3. Test by asking Claude Code to resolve a library via Context7
+
+### Context7 Returns Stale Docs
+
+Context7 serves documentation from its CDN. If you see outdated content, try:
+
+```bash
+# Force re-fetch by clearing npx cache
+npx clear-npx-cache
+```
+
+---
+
 ## Knowledge Database
 
 ### knowledge.db Corruption
