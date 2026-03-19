@@ -18,7 +18,7 @@ BMB 由 10 個專業代理自主協作，涵蓋設計、實作、驗證、分析
 
 | 傳統工作流程 | BMB |
 |---|---|
-| 單一代理處理所有任務 | 9 個專業代理分工協作 |
+| 單一代理處理所有任務 | 10 個專業代理分工協作 |
 | 自己寫的程式碼自己審查 | 跨模型盲審驗證 (Gemini) |
 | 沒有設計直接開發 | Council 辯論 → 達成共識後才開工 |
 | 在 main 分支直接作業 | Worktree 隔離，安全實驗 |
@@ -46,7 +46,7 @@ curl -fsSL https://raw.githubusercontent.com/project820/be-my-butler/main/instal
 
 ## 核心功能
 
-- **11.5 步驟完整管線** — Session Prep → Consulting → Council Debate → Architecture → Execution → Testing → Blind Verification → Simplification → **Analyst (Step 10.5)** → Documentation → Learning → Handoff
+- **12 步驟完整管線** — Session Prep → Consulting → Council Debate → Architecture → Execution → Testing → Blind Verification → Simplification → **Analyst (Step 10.5)** → Documentation → Learning → Handoff
 - **跨模型盲審驗證** — 實作代理完全不知情的狀態下，由 Gemini 獨立驗證，消除偏見
 - **Council Debate** — Lead + Consultant + 外部模型針對設計方案進行辯論，找出最佳方案
 - **Worktree 隔離** — 使用 `git worktree` 不碰 main 分支，安全地進行實驗
@@ -79,7 +79,7 @@ BMB 的核心理念是「正確性先於速度」。在 AI 輔助開發快速迭
 
 ## 互動式架構指南
 
-以視覺化方式瀏覽 11.5 步驟管線的完整流程：
+以視覺化方式瀏覽 12 步驟管線的完整流程：
 
 **[docs/index.html](index.html)** — 基於 Mermaid 圖表的互動式指南
 
@@ -97,7 +97,7 @@ BMB 的核心理念是「正確性先於速度」。在 AI 輔助開發快速迭
 
 | 技能 | 用途 |
 |---|---|
-| `/BMB` | 完整 11.5 步驟管線 |
+| `/BMB` | 完整 12 步驟管線 |
 | `/BMB-setup` | 專案初始設定 |
 | `/BMB-brainstorm` | Lead + Consultant 諮詢 session |
 | `/BMB-refactoring` | 跨模型審查的重構作業 |
