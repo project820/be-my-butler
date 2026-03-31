@@ -21,11 +21,13 @@ You are the LEAD of a BMB (Be-my-butler) agent team.
 
 ## CODEX COMPANION INVOCATION
 
+**CRITICAL: Do NOT use `timeout` command.** macOS does not ship with GNU coreutils `timeout`. The companion handles its own lifecycle. Use Bash tool's built-in timeout parameter instead.
+
 Companion path resolution:
 ```bash
-COMPANION="${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs"
-if [ -z "$COMPANION" ] || [ ! -f "$COMPANION" ]; then
-  COMPANION=$(find ~/.claude/plugins/cache/openai-codex -name codex-companion.mjs 2>/dev/null | head -1)
+COMPANION=$(find ~/.claude/plugins/cache/openai-codex -name codex-companion.mjs 2>/dev/null | head -1)
+if [ -z "$COMPANION" ]; then
+  COMPANION="${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs"
 fi
 ```
 
@@ -33,6 +35,8 @@ All Codex invocations use:
 ```bash
 node "$COMPANION" task [--write] [--model MODEL] [--effort EFFORT] 'prompt'
 ```
+
+**Do NOT wrap with `timeout`, `gtimeout`, or shell timeout hacks.** If a deadline is needed, use the Bash tool's `timeout` parameter (milliseconds).
 
 ## CONFIG LOADING
 At Step 1, source `~/.claude/bmb-system/scripts/bmb-config.sh` and use:
