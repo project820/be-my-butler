@@ -150,10 +150,6 @@ for f in \
     skills/bmb-refactoring/SKILL.md \
     skills/bmb-setup/SKILL.md \
     agents/bmb-architect.md \
-    agents/bmb-consultant.md \
-    agents/bmb-executor.md \
-    agents/bmb-frontend.md \
-    agents/bmb-simplifier.md \
     agents/bmb-tester.md \
     agents/bmb-verifier.md \
     agents/bmb-writer.md \
@@ -286,9 +282,10 @@ check_installed "$CLAUDE_DIR/skills/bmb-brainstorm/SKILL.md"       "Skill: bmb-b
 check_installed "$CLAUDE_DIR/skills/bmb-refactoring/SKILL.md"      "Skill: bmb-refactoring"
 check_installed "$CLAUDE_DIR/skills/bmb-setup/SKILL.md"            "Skill: bmb-setup"
 check_installed "$CLAUDE_DIR/agents/bmb-architect.md"              "Agent: architect"
-check_installed "$CLAUDE_DIR/agents/bmb-consultant.md"             "Agent: consultant"
-check_installed "$CLAUDE_DIR/agents/bmb-executor.md"               "Agent: executor"
+check_installed "$CLAUDE_DIR/agents/bmb-tester.md"                 "Agent: tester"
 check_installed "$CLAUDE_DIR/agents/bmb-verifier.md"               "Agent: verifier"
+check_installed "$CLAUDE_DIR/agents/bmb-writer.md"                 "Agent: writer"
+check_installed "$CLAUDE_DIR/agents/bmb-analyst.md"                "Agent: analyst"
 check_installed "$BMB_SYS/scripts/bmb-learn.sh"                    "Script: bmb-learn"
 check_installed "$BMB_SYS/config/defaults.json"                    "Config: defaults"
 check_installed "$BMB_SYS/templates/session-prep.md"               "Template: session-prep"
