@@ -78,7 +78,7 @@ check_tool python3  required "" "python3 --version 2>/dev/null"
 check_tool sqlite3  required "" "sqlite3 --version 2>/dev/null | awk '{print \$1}'"
 check_tool git      required "" "git --version 2>/dev/null"
 check_tool codex    optional "cross-model" "codex --version 2>/dev/null | head -1"
-check_tool gemini   optional "cross-model" "gemini --version 2>/dev/null | head -1"
+check_tool node     required "" "node --version 2>/dev/null"
 
 # ── Installed Files ────────────────────────────────────────────────────────────
 print_header "Installed Files"
@@ -109,7 +109,6 @@ done
 check_file "$CLAUDE_DIR/agents/bmb-analyst.md"       "agent: bmb-analyst.md"
 
 # Scripts
-check_file "$BMB_SYS/scripts/cross-model-run.sh"    "script: cross-model-run.sh"
 check_file "$BMB_SYS/scripts/bmb-learn.sh"           "script: bmb-learn.sh"
 check_file "$BMB_SYS/scripts/bmb-analytics.sh"       "script: bmb-analytics.sh"
 check_file "$BMB_SYS/scripts/knowledge-index.sh"     "script: knowledge-index.sh"
@@ -137,7 +136,6 @@ check_executable() {
     fi
 }
 
-check_executable "$BMB_SYS/scripts/cross-model-run.sh"  "cross-model-run.sh"
 check_executable "$BMB_SYS/scripts/bmb-learn.sh"        "bmb-learn.sh"
 check_executable "$BMB_SYS/scripts/bmb-analytics.sh"    "bmb-analytics.sh"
 check_executable "$BMB_SYS/scripts/knowledge-index.sh"  "knowledge-index.sh"
@@ -196,6 +194,14 @@ if [ -f ".bmb/analytics/analytics.db" ]; then
     print_row "analytics.db" "$_db_size" "OK"
 else
     print_row "analytics.db" "not yet created" "WARN"
+fi
+
+# Codex companion
+COMPANION=$(find ~/.claude/plugins/cache/openai-codex -name codex-companion.mjs 2>/dev/null | head -1)
+if [ -n "$COMPANION" ]; then
+    print_row "Codex companion" "found" "OK"
+else
+    print_row "Codex companion (install Codex plugin)" "not found" "WARN"
 fi
 
 # ── Summary ────────────────────────────────────────────────────────────────────
