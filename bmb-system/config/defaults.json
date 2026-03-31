@@ -7,13 +7,27 @@
   "cross_model": {
     "provider": "codex",
     "codex_model": "LATEST",
-    "gemini_model": "LATEST",
     "timeout_seconds": 3600,
     "codex_review_model": "gpt-5.4",
     "codex_review_effort": "xhigh",
     "preflight_timeout": 10,
-    "max_mcp_startup_sec": 15,
     "_note": "LATEST = use provider CLI default (best available model). Override with specific model name if needed."
+  },
+  "model_routing": {
+    "coder_default": "gpt-5.4-mini",
+    "coder_complex": "gpt-5.4",
+    "coder_escalation": "sonnet",
+    "researcher": "sonnet",
+    "writer": "sonnet",
+    "escalation_threshold": 2,
+    "complex_file_threshold": 3,
+    "_note": "Dynamic routing: mini for simple tasks, High for complex, Sonnet on 2+ rejections or 3+ files changed."
+  },
+  "companion": {
+    "effort_default": "medium",
+    "effort_complex": "high",
+    "fallback_stages": ["retry", "resume", "escalate"],
+    "_note": "Codex companion invocation config. 3-tier fallback: retry same, resume-last, escalate to Sonnet."
   },
   "timeouts": {
     "claude_agent": 1200,
