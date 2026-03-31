@@ -123,7 +123,7 @@ check_required python3
 check_required sqlite3
 check_required git
 check_optional codex "cross-model Codex support"
-check_optional gemini "cross-model Gemini support"
+check_required node "Node.js (required for Codex companion)"
 
 if [ -n "$REQUIRED_MISSING" ]; then
     printf "\n"
@@ -158,7 +158,6 @@ for f in \
     agents/bmb-verifier.md \
     agents/bmb-writer.md \
     agents/bmb-analyst.md \
-    bmb-system/scripts/cross-model-run.sh \
     bmb-system/scripts/bmb-analytics.sh \
     bmb-system/scripts/bmb-learn.sh \
     bmb-system/scripts/knowledge-index.sh \
@@ -240,7 +239,7 @@ done
 BMB_SYS="$CLAUDE_DIR/bmb-system"
 mkdir -p "$BMB_SYS/scripts" "$BMB_SYS/config" "$BMB_SYS/templates"
 
-for script in cross-model-run.sh bmb-learn.sh bmb-analytics.sh knowledge-index.sh knowledge-search.sh conversation-logger.py; do
+for script in bmb-learn.sh bmb-analytics.sh knowledge-index.sh knowledge-search.sh conversation-logger.py; do
     cp "$REPO_DIR/bmb-system/scripts/$script" "$BMB_SYS/scripts/"
 done
 ok "Installed scripts"
@@ -290,7 +289,6 @@ check_installed "$CLAUDE_DIR/agents/bmb-architect.md"              "Agent: archi
 check_installed "$CLAUDE_DIR/agents/bmb-consultant.md"             "Agent: consultant"
 check_installed "$CLAUDE_DIR/agents/bmb-executor.md"               "Agent: executor"
 check_installed "$CLAUDE_DIR/agents/bmb-verifier.md"               "Agent: verifier"
-check_installed "$BMB_SYS/scripts/cross-model-run.sh"              "Script: cross-model-run"
 check_installed "$BMB_SYS/scripts/bmb-learn.sh"                    "Script: bmb-learn"
 check_installed "$BMB_SYS/config/defaults.json"                    "Config: defaults"
 check_installed "$BMB_SYS/templates/session-prep.md"               "Template: session-prep"
