@@ -18,10 +18,22 @@ Run `/BMB-setup` to generate a config file interactively.
   },
 
   "cross_model": {
-    "provider": "codex",       // "codex" | "gemini"
-    "codex_model": "LATEST",   // "LATEST" or specific model name
-    "gemini_model": "LATEST",  // "LATEST" or specific model name
-    "timeout_seconds": 3600    // Cross-model operation timeout
+    "provider": "codex",       // "codex" (only supported provider in v0.5)
+    "timeout_seconds": 600     // Companion task timeout (see timeouts.cross_model)
+  },
+
+  "model_routing": {
+    "coder_default": "gpt-5.4-mini",  // Model for verification and simple tasks
+    "coder_complex": "gpt-5.4",       // Model for complex tasks (exceeds complex_file_threshold)
+    "coder_escalation": "sonnet",     // Fallback model when Codex rejects task
+    "escalation_threshold": 2,        // Rejections before escalating to coder_escalation
+    "complex_file_threshold": 3       // File count that triggers coder_complex
+  },
+
+  "companion": {
+    "effort_default": "medium",                        // Default effort level for companion tasks
+    "effort_complex": "high",                          // Effort level for complex tasks
+    "fallback_stages": ["retry", "resume", "escalate"] // 3-tier fallback sequence
   },
 
   "timeouts": {
@@ -68,17 +80,33 @@ Run `/BMB-setup` to generate a config file interactively.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `provider` | string | `"codex"` | Which CLI to use for cross-model verification. `"codex"` or `"gemini"` |
-| `codex_model` | string | `"LATEST"` | Model override for Codex CLI. `"LATEST"` uses the CLI default |
-| `gemini_model` | string | `"LATEST"` | Model override for Gemini CLI. `"LATEST"` uses the CLI default |
-| `timeout_seconds` | integer | `3600` | Legacy field (prefer `timeouts.cross_model`) |
+| `provider` | string | `"codex"` | Cross-model provider. `"codex"` is the only supported value in v0.5 |
+| `timeout_seconds` | integer | `600` | Legacy field (prefer `timeouts.cross_model`) |
+
+#### `model_routing`
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `coder_default` | string | `"gpt-5.4-mini"` | Codex model used for verification, review, and simple tasks |
+| `coder_complex` | string | `"gpt-5.4"` | Codex model used when task exceeds `complex_file_threshold` |
+| `coder_escalation` | string | `"sonnet"` | Fallback model when Codex rejects the task `escalation_threshold` times |
+| `escalation_threshold` | integer | `2` | Number of Codex rejections before escalating to `coder_escalation` |
+| `complex_file_threshold` | integer | `3` | File count that triggers `coder_complex` instead of `coder_default` |
+
+#### `companion`
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `effort_default` | string | `"medium"` | Default effort level passed to the companion (`low`, `medium`, `high`) |
+| `effort_complex` | string | `"high"` | Effort level used when the task is routed to `coder_complex` |
+| `fallback_stages` | array | `["retry", "resume", "escalate"]` | Ordered list of recovery stages the companion applies on failure |
 
 #### `timeouts`
 
 | Field | Type | Default | Applies To |
 |-------|------|---------|------------|
 | `claude_agent` | integer | `1200` | Executor, Tester, Verifier, Simplifier agents |
-| `cross_model` | integer | `1800` | All `cross-model-run.sh` invocations |
+| `cross_model` | integer | `600` | Companion plugin task timeout per invocation |
 | `writer` | integer | `600` | Writer agent (documentation updates) |
 | `analyst` | integer | `180` | Analyst agent (Step 10.5 retrospective) |
 
@@ -141,7 +169,7 @@ Set these in `~/.zshenv` (not `.zshrc` -- MCP and daemon processes do not read `
 |----------|----------|-------------|
 | `BMB_TG_TOKEN` | No | Telegram bot token for notifications |
 | `BMB_TG_CHAT` | No | Telegram chat ID for notifications |
-| `BMB_CROSS_MODEL_PROVIDER` | No | Fallback provider if `config.json` is missing. `"codex"` or `"gemini"` |
+| `BMB_CROSS_MODEL_PROVIDER` | No | Fallback provider if `config.json` is missing. `"codex"` |
 | `BMB_DIR` | No | Override `.bmb/` directory path (rarely needed) |
 | `BMB_WORKDIR` | No | Override working directory for cross-model CLI |
 | `BMB_COMPRESS_OUTPUT` | No | Set to `"1"` to enable L2 write-time compression |
@@ -167,7 +195,7 @@ BMB sends notifications at three points: pipeline start, user approval needed, p
 | Symptom | Adjust | Recommended |
 |---------|--------|-------------|
 | Executor times out on large codebases | `claude_agent` | 1800-2400s |
-| Cross-model never completes | `cross_model` | 5400-7200s |
+| Companion task never completes | `cross_model` | 1200-1800s |
 | Writer times out on many docs | `writer` | 900-1200s |
 | Analyst times out on large analytics.db | `analyst` | 600s |
 | All agents timing out | All | Multiply by 2x |
@@ -177,7 +205,7 @@ BMB sends notifications at three points: pipeline start, user approval needed, p
 | Scenario | Adjust | Recommended |
 |----------|--------|-------------|
 | Small bugfixes | `claude_agent` | 600s |
-| Fast cross-model (Gemini) | `cross_model` | 1800s |
+| Small cross-model task | `cross_model` | 300s |
 | Simple doc updates | `writer` | 300s |
 | Small projects with few patterns | `analyst` | 120s |
 
