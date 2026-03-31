@@ -2,25 +2,32 @@
 
 ## System Overview
 
-BMB (Be My Butler) is a 12-step multi-agent orchestration pipeline for Claude Code. A single **Lead** agent spawns and coordinates 10 specialized agents through tmux panes, communicating exclusively via files in the `.bmb/` directory.
+BMB (Be My Butler) is a 12-step multi-agent orchestration pipeline for Claude Code. A single **Lead** agent dispatches and coordinates specialized agents through the Agent tool, communicating exclusively via files in the `.bmb/` directory.
+
+### Sandwich Pattern
+
+The pipeline follows a heavy-light-heavy model distribution:
+
+| Layer | Model | Role |
+|-------|-------|------|
+| **Heavy** | Opus | Design, architecture review, final retrospective/verify |
+| **Light** | Sonnet | Research, implementation coordination |
+| **Code** | Codex companion | Actual code execution (via `codex-companion.mjs`) |
 
 ```mermaid
 graph TB
-    subgraph "tmux session"
-        Lead["Lead (fixed pane)"]
-        Consultant["Consultant (fixed pane)"]
+    subgraph "Lead (Agent tool dispatch)"
+        Lead["Lead (persistent)"]
     end
 
-    subgraph "Ephemeral Panes (spawn → wait → kill)"
+    subgraph "Ephemeral Agents (Agent tool → result file → done)"
         Architect
-        Executor
-        Frontend
+        CodexCompanion["Codex Companion (codex-companion.mjs)"]
         Tester
         Verifier
-        Simplifier
+        Simplifier["Simplifier (/simplify skill)"]
         Writer
         Analyst
-        Monitor["Monitor (Lead-owned, optional)"]
     end
 
     subgraph ".bmb/ (handoff directory)"
@@ -39,13 +46,10 @@ graph TB
 
     Lead -->|writes| briefing
     Lead -->|reads all| .bmb/
-    Consultant -.->|reads| briefing
     Architect -->|reads| briefing
     Architect -->|writes| plan
-    Executor -->|reads| plan
-    Executor -->|writes| execResult
-    Frontend -->|reads| plan
-    Frontend -->|writes| .bmb/
+    CodexCompanion -->|reads| plan
+    CodexCompanion -->|writes| execResult
     Tester -->|reads| plan & briefing
     Tester -->|writes| testResult
     Verifier -->|reads| plan & briefing
@@ -63,9 +67,9 @@ graph TB
 
 - **Lead never writes code.** It only makes decisions and relays instructions.
 - **All communication is file-based.** Agents never communicate directly -- every handoff goes through `.bmb/handoffs/`.
-- **Agents are ephemeral.** Only Lead and Consultant persist. All other agents are spawned via `tmux split-pane`, polled for a result file, and killed when done.
+- **Agents are ephemeral.** Only Lead persists. All other agents are dispatched via the Agent tool, produce a result file, and exit when done.
 - **Context protection.** Lead reads compressed summaries (max 300 tokens) rather than full handoff files to preserve its context window.
-- **Unified permissions.** All spawned agents use `--permission-mode bypassPermissions`. The Lead constrains scope via prompt, not permission flags.
+- **Unified permissions.** All dispatched agents use `--permission-mode bypassPermissions`. The Lead constrains scope via prompt, not permission flags.
 - **Structured telemetry.** Lead emits lifecycle events to `analytics.db` throughout the pipeline. The Analyst (Step 10.5) reads this DB and classifies events by Bird's Law severity.
 
 ---
@@ -75,9 +79,7 @@ graph TB
 ```
 .bmb/
 ├── config.json                    # Pipeline configuration
-├── session-log.md                 # All agents append here
-├── consultant-feed.md             # Lead → Consultant updates (dual-channel)
-├── consultant-pane-id             # Consultant tmux pane ID
+├── session-log.md                 # All agents append here (Lead emits lifecycle events)
 ├── analytics/
 │   └── analytics.db               # SQLite: sessions, events, pattern_counts
 ├── handoffs/
@@ -115,15 +117,15 @@ graph TB
 ```mermaid
 flowchart TD
     S1["1. Setup<br/>Load config, restore session, init .bmb/"]
-    S2["2. Brainstorm + Consultant<br/>Lead brainstorms, Consultant observes"]
+    S2["2. Brainstorm<br/>Lead brainstorms, user feedback via /btw"]
     S3["3. User Approval<br/>Present briefing, get YES/NO/MODIFY"]
     S4["4. Architecture (Council)<br/>Architect designs + council debate"]
-    S5["5. Execution<br/>Executor + Frontend in worktrees"]
+    S5["5. Execution<br/>Codex companion task in worktrees"]
     S55["5.5 Merge Worktrees<br/>Commit & merge into main"]
     S6["6. Cross-Model Testing (Blind)<br/>Claude + Cross-model in separate worktrees"]
     S7["7. Cross-Model Verification (Blind)<br/>Claude + Cross-model blind review"]
     S8["8. Reconciliation<br/>Merge reports, classify failures"]
-    S9["9. Simplification + Re-verify<br/>Remove dead code, re-run tests"]
+    S9["9. Simplification + Re-verify<br/>/simplify skill removes dead code, re-run tests"]
     S10["10. Docs Update<br/>Writer updates documentation"]
     S105["10.5 Retrospective Analysis<br/>Analyst: Bird's Law severity, pattern_counts"]
     S11["11. Lead Retrospective<br/>bmb_learn, analyst relay, promotion check"]
@@ -187,8 +189,8 @@ CREATE TABLE pattern_counts (
   last_seen TEXT
 );
 
--- External dependency incidents (v0.3.4)
--- Written by bin/codex shim and cross-model-run.sh to NDJSON spool;
+-- External dependency incidents (v0.3.4+)
+-- Written to NDJSON spool via Lead's analytics events when the Codex companion reports failures;
 -- imported into this table at pipeline start via bmb_analytics_import_incidents()
 CREATE TABLE external_incidents (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -202,7 +204,7 @@ CREATE TABLE external_incidents (
 );
 ```
 
-**Single-writer rule (v0.3.4):** The `bin/codex` shim and `cross-model-run.sh` write incidents to an NDJSON spool at `~/.claude/bmb-system/runtime/external-incidents.ndjson`. The Lead imports the spool into `external_incidents` at Step 1 via `bmb_analytics_import_incidents()` — ensuring SQLite always has a single writer (Lead only).
+**Single-writer rule (v0.5):** When the Codex companion (`codex-companion.mjs`) encounters failures, it reports them back to Lead as structured analytics events. Lead writes those incidents to the NDJSON spool at `~/.claude/bmb-system/runtime/external-incidents.ndjson` and imports them into `external_incidents` at Step 1 via `bmb_analytics_import_incidents()` — ensuring SQLite always has a single writer (Lead only).
 
 ### Bird's Law Severity Model
 
@@ -229,26 +231,17 @@ At session end, the Lead reads the Analyst report and presents a tiered summary:
 
 ---
 
-## Consultant — Coordinator Identity
+## User Coordination — /btw Pattern
 
-The Consultant operates in two distinct modes:
+The Consultant agent has been removed. User coordination is handled via the `/btw` skill, which lets the user inject context or corrections into the Lead's pipeline at any step without interrupting flow.
 
-| Mode | When | Receives |
-|------|------|----------|
-| **Active** | Steps 2–3 (brainstorm/council) | Full context, can send feedback |
-| **Blind** | Steps 6–7 (testing/verification) | Lifecycle events only (no test payloads) |
-| **Post-briefing** | After Step 8 reconciliation | Analyst report + full results |
+Lead still emits structured JSON lifecycle events to `session-log.md` for observability:
 
-**Dual-channel communication:**
-1. **Feed file** (`consultant-feed.md`) — Lead writes context updates; Consultant reads on request
-2. **SendMessage** — Lead pushes JSON lifecycle events directly to the Consultant pane
-
-Fixed JSON templates for lifecycle events:
 ```json
-{"event":"agent_spawn","step":"5","agent":"executor","timeout_sec":600,"ts":"14:03"}
-{"event":"agent_complete","step":"5","agent":"executor","result":".bmb/handoffs/exec-result.md","ts":"14:09"}
+{"event":"agent_spawn","step":"5","agent":"codex-companion","timeout_sec":600,"ts":"14:03"}
+{"event":"agent_complete","step":"5","agent":"codex-companion","result":".bmb/handoffs/exec-result.md","ts":"14:09"}
 {"event":"agent_timeout","step":"6","agent":"tester-cross","elapsed_sec":900,"ts":"14:15"}
-{"event":"merge_conflict","step":"5.5","files":"executor","ts":"14:06","severity":"error","tier":"1"}
+{"event":"merge_conflict","step":"5.5","files":"codex-companion","ts":"14:06","severity":"error","tier":"1"}
 {"event":"recovery_attempt","step":"7","agent":"verifier-cross","attempt":1,"timeout_sec":300,"ts":"14:20"}
 {"event":"cross_model_degraded","step":"7","agent":"verifier-cross","reason":"restart_failed","ts":"14:26"}
 {"event":"external_incidents_imported","step":"1","count":3,"ts":"14:01"}
@@ -258,7 +251,7 @@ Fixed JSON templates for lifecycle events:
 
 ## Context7 Protocol
 
-Architect, Executor, and Frontend agents must query live library documentation before writing any implementation code that uses third-party libraries.
+Architect and Codex companion tasks must query live library documentation before writing any implementation code that uses third-party libraries.
 
 ```
 1. mcp__context7__resolve-library-id  →  get canonical library ID
@@ -287,21 +280,22 @@ The Consultant is also **isolated** during Steps 6-7. It only receives results a
 
 ---
 
-## Codex Shim + External Incident Pipeline (v0.3.4)
+## Codex Companion + External Incident Pipeline (v0.5)
 
-BMB wraps the real `codex` binary with a transparent Python shim (`bmb-system/bin/codex`) that intercepts failures without changing normal behavior.
+BMB delegates code execution to the **Codex companion** (`codex-companion.mjs`), a Node.js module that wraps Codex companion tasks and reports structured results back to Lead.
 
 ### Incident Flow
 
 ```
-bin/codex (shim)
-  │  TTY passthrough for interactive mode
-  │  Non-TTY: stream large output to temp file (not RAM buffer)
+Codex companion task (codex-companion.mjs)
+  │  Dispatched by Lead via Agent tool
+  │  Reports result + any failure events back to Lead as structured JSON
   │  Stall detection: output gap > 180s (primary) + CPU < 5% (auxiliary only)
   │  Auth failure detection: 401/auth patterns in stderr
   ▼
-~/.claude/bmb-system/runtime/external-incidents.ndjson  (NDJSON spool)
-  │  Single-line JSON per event
+Lead (receives companion result)
+  │  Writes failure events to NDJSON spool (single-writer rule preserved)
+  │  Spool: ~/.claude/bmb-system/runtime/external-incidents.ndjson
   │  Sanitized: strips Bearer tokens, sk-* keys, emails, home paths
   ▼
 bmb_analytics_import_incidents()   (called at Step 1 init)
@@ -343,11 +337,11 @@ Each cross-model profile has its own default timeout instead of sharing a flat 3
 Git worktrees provide **filesystem-level isolation** between agents that write code.
 
 ```
-Step 4:   Create executor worktree (+ frontend if needed) from HEAD
-          ├── .bmb/worktrees/executor/    (branch: bmb-executor-{session_id})
-          └── .bmb/worktrees/frontend/    (branch: bmb-frontend-{session_id})
+Step 4:   Create companion worktree (+ frontend if needed) from HEAD
+          ├── .bmb/worktrees/codex-companion/    (branch: bmb-codex-companion-{session_id})
+          └── .bmb/worktrees/frontend/           (branch: bmb-frontend-{session_id})
 
-Step 5:   Agents write code in their worktrees (parallel-safe)
+Step 5:   Codex companion task executes code in its worktree (parallel-safe)
 
 Step 5.5: Commit in each worktree → merge into main → remove worktrees
           On conflict: escalate to user, log MISTAKE learning
@@ -433,18 +427,16 @@ BMB never blocks on optional dependencies. If a capability is unavailable, the p
 | Component | Degraded Mode | Impact |
 |-----------|--------------|--------|
 | Cross-model CLI unavailable | Claude-only testing/verification | Loses blind divergent framing |
-| Gemini unavailable but Codex works | Use Codex as cross-model | None (single provider sufficient) |
-| Cross-model timeout (v0.3.4) | Recovery-first: one bounded restart (300s), then Claude-only | Minimal — single recovery attempt before degradation |
+| Gemini unavailable but Codex works | Use Codex companion as cross-model | None (single provider sufficient) |
+| Cross-model timeout (v0.5) | Recovery-first: one bounded restart (300s), then Claude-only | Minimal — single recovery attempt before degradation |
 | Council debate timeout | Solo architecture (Claude only) | Loses adversarial design challenge |
-| Frontend agent not needed | Skip frontend worktree/merge | None |
+| Codex companion not needed (frontend skipped) | Skip companion task for frontend | None |
 | `knowledge.db` corrupted | Delete and re-index | Loses past session search |
 | `session-prep.md` missing | Fresh start (no continuity) | Loses prior session context |
 | `analytics.db` missing | Analyst skips; logs warning to `session-log.md` | Loses pattern analysis for this session |
-| NDJSON incident spool missing (v0.3.4) | Skip incident import; log warning | Loses off-session incident history |
+| NDJSON incident spool missing | Skip incident import; log warning | Loses off-session incident history |
 | Context7 unavailable | Agents fall back to memorized API knowledge | Risk of stale-SDK errors |
 | Telegram not configured | Skip notifications | No user alerts |
-| Monitor fails to start | Lead logs warning, continues without monitoring | Existing polling handles timeouts |
-| Monitor crashes mid-pipeline | Lead continues; polling covers timeouts | None — Monitor is optional |
 
 All degradation events are logged to `session-log.md` with timestamp.
 
