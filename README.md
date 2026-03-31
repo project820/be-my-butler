@@ -4,15 +4,15 @@
 
 # BMB — Be My Butler
 
-**Multi-agent orchestration for Claude Code with cross-model blind verification**
+**Multi-agent orchestration for Claude Code**
 
-[![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-compatible-blueviolet.svg)](https://docs.anthropic.com/en/docs/claude-code)
-[![Agents](https://img.shields.io/badge/agents-10-orange.svg)](#the-10-agents)
+[![Agents](https://img.shields.io/badge/agents-5-orange.svg)](#the-5-agents)
 [![Steps](https://img.shields.io/badge/pipeline_steps-12-teal.svg)](#the-12-step-pipeline)
-[![What's New](https://img.shields.io/badge/what's_new-v0.4.0-green.svg)](WHATS-NEW-0.4.md)
+[![What's New](https://img.shields.io/badge/what's_new-v0.5.0-green.svg)](WHATS-NEW-0.5.md)
 
 <!-- TODO: Replace with asciinema recording -->
 <!-- [![asciicast](assets/demo.svg)](https://asciinema.org/a/TODO) -->
@@ -35,7 +35,7 @@ Solo AI coding assistants are fast — but they hallucinate, skip edge cases, an
 | **"Works for me" testing** | Divergent framing — verifier receives a deliberately reworded spec to catch assumption leaks |
 | **Lost knowledge** | FTS5 knowledge base + auto-learning promotes recurring lessons automatically |
 
-> BMB doesn't replace your judgment — it gives you **10 opinionated experts** who argue before you decide.
+> BMB doesn't replace your judgment — it gives you **5 specialized agents** who challenge and verify each other's work before you decide.
 
 ---
 
@@ -56,8 +56,6 @@ bmb doctor
 ```
 
 That's it. BMB registers its agents, skills, and scripts into your Claude Code environment. Type `/BMB` in any project to start the full 12-step pipeline.
-
-> **Optional for cross-model verification:** Install [Codex CLI](https://github.com/openai/codex) and/or [Gemini CLI](https://github.com/google-gemini/gemini-cli) to unlock blind verification with a second model.
 
 ---
 
@@ -98,15 +96,15 @@ flowchart TD
 | Step | Agent | What Happens |
 |---:|---|---|
 | **1** | Lead | **Session Prep** — loads `session-prep.md`, restores context from prior sessions |
-| **2** | Consultant | **Brainstorm** — generates divergent ideas with blind framing |
-| **3** | Consultant + Lead | **Council Debate** — multi-round structured argument; Lead decides |
+| **2** | Lead | **Brainstorm** — generates divergent ideas with blind framing |
+| **3** | Lead | **Council Debate** — multi-round structured argument; Lead decides |
 | **4** | Architect | **Architecture** — produces file tree, interface contracts, dependency map |
 | **5** | Lead | **Plan** — converts architecture into ordered execution steps |
-| **6** | Executor | **Execute** — implements changes in an isolated git worktree |
-| **7** | Frontend | **Frontend** — UI/UX work (skipped for backend-only recipes) |
+| **6** | Lead | **Execute** — implements changes in an isolated git worktree |
+| **7** | Lead | **Frontend** — UI/UX work (skipped for backend-only recipes) |
 | **8** | Tester | **Test** — writes and runs tests with coverage targets |
-| **9** | Verifier | **Verify** — cross-model blind review with divergent spec framing |
-| **10** | Simplifier | **Simplify** — removes dead code, flattens unnecessary abstractions |
+| **9** | Verifier | **Verify** — blind review with divergent spec framing |
+| **10** | Lead | **Simplify** — removes dead code, flattens unnecessary abstractions |
 | **10.5** | Analyst | **Retrospective Analysis** — queries `analytics.db`, classifies events by Bird's Law severity, identifies promotion candidates from `pattern_counts` |
 | **11** | Lead | **Retrospective** — bmb_learn calls, analyst report relay, promotion check |
 | **12** | Lead | **Cleanup** — commit, push, session-prep, carry-forward, worktree cleanup |
@@ -119,8 +117,8 @@ flowchart TD
 <tr>
 <td width="50%">
 
-### Cross-Model Blind Verification
-The Verifier agent sends your code to a **different model** (Codex or Gemini) with a deliberately **reworded specification**. If the second model finds issues the first missed, you know the solution has assumption leaks — not just bugs.
+### Blind Verification
+The Verifier agent reviews code using a deliberately **reworded specification**. If the verifier finds issues the implementer missed, you know the solution has assumption leaks — not just bugs.
 
 </td>
 <td width="50%">
@@ -167,8 +165,8 @@ Every pipeline run emits structured telemetry to `analytics.db`. The Analyst (St
 </td>
 <td>
 
-### Context7 for All Implementation Agents
-Architect, Executor, and Frontend agents query **live library documentation** via Context7 MCP before writing code. No stale API assumptions — agents always write against the current SDK.
+### Context7 for Implementation
+The Architect agent queries **live library documentation** via Context7 MCP before writing code. No stale API assumptions — always write against the current SDK.
 
 </td>
 </tr>
@@ -201,22 +199,17 @@ Architect, Executor, and Frontend agents query **live library documentation** vi
 
 ---
 
-## The 10 Agents
+## The 5 Agents
 
 | Agent | Role | Model |
 |---|---|---|
-| **Lead** | Orchestrator, decision-maker, session continuity | Claude |
-| **Consultant** | Coordinator: user advisor + pipeline monitor. Dual-channel (feed + SendMessage). Post-briefing analysis after blind phase. | Claude (i18n: en/ko/ja/zh-TW) |
 | **Architect** | System design, file tree, contracts. Queries Context7 for live library docs. | Claude |
-| **Executor** | Implementation in isolated worktree. Queries Context7 before writing. | Claude |
-| **Frontend** | UI/UX implementation. Queries Context7 before writing. | Claude |
 | **Tester** | Test writing and execution | Claude |
-| **Verifier** | Cross-model blind review | Codex / Gemini / Claude |
-| **Simplifier** | Dead code removal, complexity reduction | Claude |
+| **Verifier** | Blind review with divergent spec framing | Claude |
+| **Writer** | Documentation generation | Claude |
 | **Analyst** | Retrospective analytics: Bird's Law severity classification, `pattern_counts` promotion candidates | Claude (bypassPermissions, read-only) |
-| **Monitor** | Lead-owned lightweight observer: metadata-only stall detection, timeout warnings, blind phase filtering. Optional dependency — never blocks pipeline. | Claude Haiku |
 
-> The **Writer** agent handles documentation generation as a sub-role of the pipeline.
+> The **Lead** agent orchestrates all pipeline steps that don't have a dedicated specialist agent.
 
 ---
 
@@ -229,8 +222,6 @@ Architect, Executor, and Frontend agents query **live library documentation** vi
 | `python3` | Yes | Script tooling |
 | `sqlite3` | Yes | FTS5 knowledge base |
 | `git` | Yes | Worktree isolation |
-| [Codex CLI](https://github.com/openai/codex) | Optional | Cross-model verification |
-| [Gemini CLI](https://github.com/google-gemini/gemini-cli) | Optional | Cross-model verification |
 
 Run `bmb doctor` after installation to verify all dependencies.
 
@@ -258,10 +249,11 @@ Mobile-optimized summary pages (7-card vertical scroll, 4 locales):
 ```
 ~/Projects/bmb/              # Source of truth (GitHub repo)
 ├── skills/bmb*/             # 5 slash command skills
-├── agents/bmb-*.md          # 10 agent definitions
+├── agents/bmb-*.md          # 5 agent definitions
 ├── bmb-system/
 │   ├── config/              # defaults.json (v2)
-│   ├── scripts/             # cross-model-run.sh, bmb-config.sh, bmb-ideas.sh, bmb-analytics.sh, ...
+│   ├── scripts/             # bmb-config.sh, bmb-ideas.sh, bmb-analytics.sh, bmb-learn.sh,
+│   │                        # bmb-external-incidents.sh, knowledge-index.sh, knowledge-search.sh
 │   └── plans/               # Version release plans
 └── docs/                    # Architecture, configuration, troubleshooting
 

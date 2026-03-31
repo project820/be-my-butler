@@ -23,19 +23,14 @@ Multi-agent orchestration pipeline with cross-model verification, idea lifecycle
 | `/BMB-setup` | First-time onboarding + project configuration |
 | `/BMB-status` | Project/idea dashboard + nudge system |
 
-## Agents (10)
+## Agents (5)
 | Agent | Model | Role |
 |-------|-------|------|
-| bmb-consultant | sonnet | Persistent advisor (Korean) — hybrid sync, profile-based persona, mid-session idea capture |
 | bmb-architect | opus | Council debate + design. Queries Context7 for live docs. |
-| bmb-executor | opus | Backend implementation. Queries Context7 before writing. |
-| bmb-frontend | opus | Frontend implementation. Queries Context7 before writing. |
 | bmb-tester | opus | Tests + coverage gate |
 | bmb-verifier | opus | Verification + code review |
-| bmb-simplifier | opus | Code cleanup |
 | bmb-writer | sonnet | Documentation |
 | bmb-analyst | sonnet | Retrospective analytics: Bird's Law severity, pattern_counts (bypassPermissions, read-only) |
-| bmb-monitor | haiku | Lead-owned lightweight observer: metadata-only stall detection, timeout warnings, blind phase filtering. Optional dependency. |
 
 ## Scripts
 | Script | Purpose |
@@ -44,7 +39,7 @@ Multi-agent orchestration pipeline with cross-model verification, idea lifecycle
 | `scripts/bmb-ideas.sh` | Idea lifecycle CRUD (spark → project → archive) |
 | `scripts/bmb-learn.sh` | Auto-learning from corrections/decisions |
 | `scripts/bmb-analytics.sh` | Session analytics telemetry |
-| `scripts/cross-model-run.sh` | Cross-model wrapper (codex/gemini) with profiles: council, verify, review, test, exec-assist |
+| `scripts/bmb-external-incidents.sh` | External incident tracking and reporting |
 | `scripts/conversation-logger.py` | FIFO-based conversation logging |
 | `scripts/knowledge-index.sh` | Indexes council decisions + handoff content into FTS5 `knowledge.db` after each session |
 | `scripts/knowledge-search.sh` | Semantic search across past sessions via FTS5 (`knowledge.db`) |
