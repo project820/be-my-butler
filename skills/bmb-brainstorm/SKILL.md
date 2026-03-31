@@ -1,18 +1,18 @@
 ---
 name: bmb-brainstorm
-description: "BMB brainstorming session — Lead + Consultant bidirectional consulting with conversation logging, idea lifecycle, and cross-model plan review."
+description: "BMB brainstorming session — Lead conducts direct user consulting with conversation logging, idea lifecycle, and Codex companion plan review."
 ---
 
 # /BMB-brainstorm
 
-Interactive brainstorming session with Lead + Consultant.
+Interactive brainstorming session with Lead.
 
 ## YOUR ABSOLUTE RULES
 1. **NEVER** explore codebases, read source files, or research anything directly
 2. **NEVER** write or edit code — not a single line
 3. **ONLY** read files in `.bmb/` directory and `CLAUDE.md`
 4. Your job is ORCHESTRATION and RELAY only
-5. **NEVER use the Agent tool** — Consultant spawns via tmux only
+5. **NEVER use the Agent tool**
 6. **NEVER call EnterPlanMode** — all plan documents are created as files directly
 7. **PERMITTED operations:**
    - Source BMB scripts (`bmb-config.sh`, `bmb-ideas.sh`, `bmb-learn.sh`)
@@ -21,13 +21,11 @@ Interactive brainstorming session with Lead + Consultant.
    - Write `CLAUDE.md` and `.gitignore` in new projects (Phase 4.1 only)
 
 ## Prerequisites
-- Must be in tmux (`$TMUX` check)
+- No tmux requirement — Lead talks directly with the user
+- Note: `/btw` is available during the session for side context injection
 
 ## Phase 1: Setup
 ```bash
-# tmux guard
-if [ -z "$TMUX" ]; then echo "ERROR: BMB requires tmux." >&2; exit 1; fi
-
 # Source config infrastructure
 source "$HOME/.claude/bmb-system/scripts/bmb-config.sh"
 if ! bmb_config_first_time_gate; then exit 0; fi
@@ -74,34 +72,9 @@ LOGGER_PID=$!
 echo $LOGGER_PID > .bmb/sessions/${SESSION_ID}/logger.pid
 ```
 
-Load consultant style from config via `bmb_config_get`.
+## Phase 2: Session Ready
 
-## Phase 2: Spawn Consultant
-Initialize consultant feed (hybrid — Finding 3 fix):
-```bash
-cat > .bmb/consultant-feed.md << EOF
-# Consultant Feed
-Task: Brainstorming session
-Session: .bmb/sessions/${SESSION_ID}/
-Log: .bmb/sessions/${SESSION_ID}/conversation-log.md
-Started: $(date)
-Style: $(bmb_config_get "consultant.custom_style" || echo "default")
-Persona: $(bmb_config_get "_consultant_persona.name" || echo "Consultant")
-
-## Pipeline Events
-### Step 1 ($(date +%H:%M)): Brainstorming session started
-EOF
-```
-
-Spawn Consultant pane (vertical split — Axis 1):
-```bash
-CONSULTANT=$(tmux split-pane -h -p 35 -d -P -F '#{pane_id}' \
-  "CLAUDECODE= claude --agent bmb-consultant --permission-mode dontAsk \
-  '.bmb/consultant-feed.md를 읽고, 브레인스토밍 세션 시작을 알려주세요.'")
-echo "$CONSULTANT" > .bmb/consultant-pane-id
-```
-
-## Phase 3: Bidirectional Brainstorming
+## Phase 3: Brainstorming
 Lead conducts interactive brainstorming directly with the user:
 
 1. Ask opening questions about the task/problem
@@ -110,22 +83,13 @@ Lead conducts interactive brainstorming directly with the user:
    echo "$(date +%H:%M)|Lead|QUESTION|{question}" > .bmb/sessions/${SESSION_ID}/log-pipe
    echo "$(date +%H:%M)|User|ANSWER|{answer}" > .bmb/sessions/${SESSION_ID}/log-pipe
    ```
-3. Sync key points to consultant feed:
-   ```bash
-   echo "### 질문 ($(date +%H:%M)): {question summary}" >> .bmb/consultant-feed.md
-   ```
-4. SendMessage to Consultant for supplementary insights when needed:
-   - `NEW_BUSINESS_RULE`: when user mentions a business rule
-   - `CONTEXT_UPDATE`: when new requirements emerge
-5. Handle `[NEW_IDEA]` from Consultant:
-   When Consultant sends `[NEW_IDEA] title | description`:
+3. When a side idea surfaces during conversation, capture it immediately:
    ```bash
    source "$HOME/.claude/bmb-system/scripts/bmb-ideas.sh"
    NEW_IDEA_ID=$(bmb_idea_create "{title}" "{description}" "$SESSION_ID")
    echo "$(date +%H:%M)|Lead|INSIGHT|Side idea captured: {title} (${NEW_IDEA_ID})" > .bmb/sessions/${SESSION_ID}/log-pipe
    ```
-   SendMessage to Consultant: "아이디어 '{title}'이(가) 기록되었습니다 (${NEW_IDEA_ID})"
-6. Continue until:
+4. Continue until:
    - User says "enough" / "충분해" / "넘어가자"
    - All key questions are answered
    - **Context overflow detected** (see below)
@@ -271,43 +235,23 @@ HEREDOC_EOF
 
 **NOTE**: 절대 EnterPlanMode를 호출하지 않는다. 파일로 직접 생성한다.
 
-### Step 2: Send to Cross-Model for Review (via cross-model-run.sh wrapper)
+### Step 2: Send to Codex Companion for Review
 ```bash
 REVIEW_FILE=".bmb/sessions/${SESSION_ID}/plan-review.md"
 
-# Adaptive timeout based on plan size (Review recommendation)
-# v0.3.4: cross-model-run.sh now applies profile-based defaults internally,
-# but brainstorm still sets adaptive timeout for the review profile.
-PLAN_LINES=$(wc -l < ".bmb/sessions/${SESSION_ID}/plan-draft.md" 2>/dev/null || echo 0)
-AUTO_TIMEOUT=600
-[ "$PLAN_LINES" -ge 200 ] && AUTO_TIMEOUT=900
-[ "$PLAN_LINES" -ge 500 ] && AUTO_TIMEOUT=1200
-[ "$PLAN_LINES" -ge 900 ] && AUTO_TIMEOUT=1800
+# Locate codex-companion.mjs
+COMPANION="${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs"
+if [ -z "$COMPANION" ] || [ ! -f "$COMPANION" ]; then
+  COMPANION=$(find ~/.claude/plugins/cache/openai-codex -name codex-companion.mjs 2>/dev/null | head -1)
+fi
 
-# Config override with clamp (min 300s, max 1800s)
-CFG_TIMEOUT=$(bmb_config_get "timeouts.codex_review" || echo "")
-[ -z "$CFG_TIMEOUT" ] && CFG_TIMEOUT=$AUTO_TIMEOUT
-CODEX_TIMEOUT=$CFG_TIMEOUT
-[ "$CODEX_TIMEOUT" -lt 300 ] && CODEX_TIMEOUT=300
-[ "$CODEX_TIMEOUT" -gt 1800 ] && CODEX_TIMEOUT=1800
+node "$COMPANION" task --effort xhigh \
+  "Review this plan document thoroughly. Point out design flaws, missing considerations, infeasible parts, security vulnerabilities, and runtime contract conflicts. Output findings-first markdown.
 
-# Submit via cross-model-run.sh wrapper (--profile review, -o output, - for stdin)
-{
-  cat <<'PROMPT_EOF'
-다음 계획 문서를 철저히 리뷰해주세요.
-설계 결함, 누락된 고려사항, 실행 불가능한 부분, 보안 취약점, 현재 코드베이스/런타임 계약과의 충돌을 모두 지적해주세요.
-결과는 findings-first 구조의 마크다운으로 작성해주세요.
-PROMPT_EOF
-  echo
-  cat ".bmb/sessions/${SESSION_ID}/plan-draft.md"
-} | ~/.claude/bmb-system/scripts/cross-model-run.sh \
-    --profile review \
-    -o "$REVIEW_FILE" \
-    - &
+$(cat .bmb/sessions/${SESSION_ID}/plan-draft.md)" > "$REVIEW_FILE" 2>"${REVIEW_FILE}.stderr" &
 REVIEW_PID=$!
 
-echo "$(date +%H:%M)|Lead|CONTEXT|Cross-model plan review started (PID: $REVIEW_PID, timeout: ${CODEX_TIMEOUT}s)" > .bmb/sessions/${SESSION_ID}/log-pipe
-echo "### $(date +%H:%M) Cross-model 계획 리뷰 시작" >> .bmb/consultant-feed.md
+echo "$(date +%H:%M)|Lead|CONTEXT|Companion plan review started (PID: $REVIEW_PID)" > .bmb/sessions/${SESSION_ID}/log-pipe
 ```
 
 Tell user: "Codex에게 계획 리뷰를 요청했어요. 잠시 기다려주세요..."
@@ -325,18 +269,12 @@ wait $REVIEW_PID 2>/dev/null
 # Early completion: proceed immediately without idle wait
 ```
 
-Check exit code for v0.3.4 degradation handling:
+Check exit code — companion failure is non-blocking:
 ```bash
 REVIEW_EXIT=$?
-if [ $REVIEW_EXIT -eq 2 ] || [ $REVIEW_EXIT -eq 3 ]; then
-  # Cross-model timed out or was killed — recovery was attempted by cross-model-run.sh
-  echo "$(date +%H:%M)|Lead|CONTEXT|Cross-model review degraded (exit=$REVIEW_EXIT)" > .bmb/sessions/${SESSION_ID}/log-pipe
-  echo "### $(date +%H:%M) Cross-model 리뷰 타임아웃 — Claude-only로 계속" >> .bmb/consultant-feed.md
-  # Inform user and proceed without cross-model review
-  # Tell user: "Codex 리뷰가 시간 내에 완료되지 않았어요. 원안으로 진행할게요."
-elif [ $REVIEW_EXIT -eq 1 ]; then
-  echo "$(date +%H:%M)|Lead|CONTEXT|Cross-model CLI unavailable (exit=1)" > .bmb/sessions/${SESSION_ID}/log-pipe
-  # Tell user: "Cross-model CLI를 사용할 수 없어서 리뷰를 건너뜁니다."
+if [ $REVIEW_EXIT -ne 0 ]; then
+  # Companion failed — proceed without review (non-blocking)
+  echo "$(date +%H:%M)|Lead|CONTEXT|Companion review failed (exit=$REVIEW_EXIT)" > .bmb/sessions/${SESSION_ID}/log-pipe
 fi
 ```
 
@@ -370,10 +308,7 @@ Based on choice:
 cp .bmb/sessions/${SESSION_ID}/plan-final.md "$HOME/.claude/bmb-ideas/${IDEA_ID}/plan.md"
 
 echo "$(date +%H:%M)|Lead|DECISION|Plan finalized after Codex review" > .bmb/sessions/${SESSION_ID}/log-pipe
-echo "### $(date +%H:%M) 계획 확정 (Codex 리뷰 반영)" >> .bmb/consultant-feed.md
 ```
-
-SendMessage to Consultant: `{"event":"plan_finalized","idea":"${IDEA_ID}","ts":"$(date +%H:%M)"}`
 
 Tell user: "계획이 확정되었습니다. 프로젝트를 생성할게요."
 → Proceed to **Phase 4.1: Project Creation Subroutine**
@@ -560,9 +495,6 @@ mv .bmb/sessions/${SESSION_ID}/carry-forward.md.tmp .bmb/sessions/${SESSION_ID}/
 
 # Send shutdown to logger
 echo "$(date +%H:%M)|System|CONTEXT|SHUTDOWN" > .bmb/sessions/${SESSION_ID}/log-pipe
-# Kill consultant
-tmux kill-pane -t $(cat .bmb/consultant-pane-id) 2>/dev/null || true
-rm -f .bmb/consultant-pane-id
 ```
 
 Present output file paths to user.
