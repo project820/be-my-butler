@@ -264,21 +264,31 @@ bmb_analytics_event "3" "" "user_rejection" "warn" "" "user cancelled"
 bmb_analytics_end_session "aborted" 3
 ```
 
-### Step 4: Architecture Design
+### Steps 4+5: Architecture + Pre-Research (PARALLEL)
 
 ```bash
 bmb_analytics_step_start "4" "architecture"
+bmb_analytics_step_start "5" "research"
 ```
 
-Dispatch Architect:
+**Dispatch BOTH in a single message (parallel Agent calls):**
+
 ```
-Agent(subagent_type="bmb-architect")
+# These two Agent calls go in ONE message for parallel execution:
+
+Agent(subagent_type="bmb-architect", name="architect")
   prompt: "Read .bmb/handoffs/briefing.md. Design the architecture.
            Include complexity: low|high rating.
            Write plan to .bmb/handoffs/plan-to-exec.md"
+
+Agent(model="sonnet", name="researcher", run_in_background=true)
+  prompt: "Read .bmb/handoffs/briefing.md.
+           Use /last30days skill to research the latest solutions, libraries,
+           and best practices relevant to this implementation.
+           Write findings to .bmb/handoffs/research-results.md"
 ```
 
-Read plan-to-exec.md after agent returns. Extract complexity:
+**After Architect returns** (foreground), extract complexity:
 ```bash
 COMPLEXITY=$(grep -oP 'complexity:\s*\K\w+' .bmb/handoffs/plan-to-exec.md || echo "low")
 if [ "$COMPLEXITY" = "high" ]; then
@@ -287,27 +297,11 @@ if [ "$COMPLEXITY" = "high" ]; then
 fi
 ```
 
+**Wait for Researcher** if still running (background agent auto-notifies on completion).
+Once both complete, refine research-results.md with plan context if needed.
+
 ```bash
 bmb_analytics_step_end "4" "architecture"
-```
-
-### Step 5: Pre-Research
-
-```bash
-bmb_analytics_step_start "5" "research"
-```
-
-Dispatch Researcher (Sonnet):
-```
-Agent(model="sonnet")
-  prompt: "Read .bmb/handoffs/plan-to-exec.md.
-           Use /last30days skill to research the latest solutions, libraries,
-           and best practices relevant to this implementation.
-           Focus on: [key technologies from plan].
-           Write findings to .bmb/handoffs/research-results.md"
-```
-
-```bash
 bmb_analytics_step_end "5" "research"
 ```
 
@@ -363,34 +357,61 @@ fi
 bmb_analytics_step_end "6" "implementation"
 ```
 
-### Step 7: Review
+### Steps 7+8: Review + Testing (PARALLEL)
 
 ```bash
 bmb_analytics_step_start "7" "review"
+bmb_analytics_step_start "8" "testing"
 ```
 
-Dispatch Verifier:
+**Dispatch BOTH in a single message (parallel Agent calls):**
+Review and Testing are independent — both read the same code but produce separate evaluations.
+
 ```
-Agent(subagent_type="bmb-verifier")
+# These two Agent calls go in ONE message for parallel execution:
+
+Agent(subagent_type="bmb-verifier", name="verifier")
   prompt: "Read .bmb/handoffs/plan-to-exec.md and the git diff from HEAD~1.
            Review code quality AND design fitness.
            Write results to .bmb/handoffs/review-result.md"
+
+Agent(subagent_type="bmb-tester", name="tester")
+  prompt: "Read .bmb/handoffs/plan-to-exec.md and the code changes.
+           Write and run comprehensive tests.
+           Write results to .bmb/handoffs/test-result.md"
 ```
 
-Read review-result.md:
+**After BOTH return**, evaluate results:
+
 ```bash
+# Review verdict
 REVIEW_VERDICT=$(grep -oP 'verdict:\s*\K\w+' .bmb/handoffs/review-result.md || echo "UNKNOWN")
 
-if [ "$REVIEW_VERDICT" = "PASS" ]; then
-  bmb_analytics_event "7" "" "verify_pass" "info" "" "all checks passed"
-  # -> proceed to Step 8
-elif [ "$REVIEW_VERDICT" = "REJECT" ]; then
-  REJECTION_COUNT=$((REJECTION_COUNT + 1))
-  CHANGED_FILES=$(git diff --name-only HEAD~1 | wc -l)
-  bmb_learn MISTAKE "7" "Review rejected: $(head -5 .bmb/handoffs/review-result.md)" "Address review feedback"
-  bmb_analytics_event "7" "" "verify_fail" "error" "" "rejected, count=$REJECTION_COUNT"
+# Test verdict
+TEST_VERDICT=$(grep -oP 'verdict:\s*\K\w+' .bmb/handoffs/test-result.md || echo "UNKNOWN")
 
-  if [ $REJECTION_COUNT -ge $ESCALATION_THRESHOLD ] || [ $CHANGED_FILES -ge 3 ]; then
+# Both must pass
+if [ "$REVIEW_VERDICT" = "PASS" ] && [ "$TEST_VERDICT" = "PASS" ]; then
+  bmb_analytics_event "7" "" "verify_pass" "info" "" "all checks passed"
+  bmb_analytics_event "8" "" "test_pass" "info" "" "all tests passed"
+  # -> proceed to Step 9
+
+else
+  # Either failed — count toward escalation
+  if [ "$REVIEW_VERDICT" = "REJECT" ]; then
+    REJECTION_COUNT=$((REJECTION_COUNT + 1))
+    CHANGED_FILES=$(git diff --name-only HEAD~1 | wc -l)
+    bmb_learn MISTAKE "7" "Review rejected: $(head -5 .bmb/handoffs/review-result.md)" "Address review feedback"
+    bmb_analytics_event "7" "" "verify_fail" "error" "" "rejected, count=$REJECTION_COUNT"
+  fi
+
+  if [ "$TEST_VERDICT" = "FAIL" ]; then
+    REJECTION_COUNT=$((REJECTION_COUNT + 1))
+    bmb_analytics_event "8" "" "test_fail" "error" "" "tests failed, count=$REJECTION_COUNT"
+  fi
+
+  # Escalation check
+  if [ $REJECTION_COUNT -ge $ESCALATION_THRESHOLD ] || [ ${CHANGED_FILES:-0} -ge 3 ]; then
     CODER_MODEL="sonnet"
     bmb_analytics_event "7" "" "escalation" "warn" "" "coder upgraded to Sonnet"
   fi
@@ -400,37 +421,6 @@ fi
 
 ```bash
 bmb_analytics_step_end "7" "review"
-```
-
-### Step 8: Testing
-
-```bash
-bmb_analytics_step_start "8" "testing"
-```
-
-Dispatch Tester (independent from coder):
-```
-Agent(subagent_type="bmb-tester")
-  prompt: "Read .bmb/handoffs/plan-to-exec.md and the code changes.
-           Write and run comprehensive tests.
-           Write results to .bmb/handoffs/test-result.md"
-```
-
-Read test-result.md:
-```bash
-TEST_VERDICT=$(grep -oP 'verdict:\s*\K\w+' .bmb/handoffs/test-result.md || echo "UNKNOWN")
-
-if [ "$TEST_VERDICT" = "PASS" ]; then
-  bmb_analytics_event "8" "" "test_pass" "info" "" "all tests passed"
-  # -> proceed to Step 9
-elif [ "$TEST_VERDICT" = "FAIL" ]; then
-  REJECTION_COUNT=$((REJECTION_COUNT + 1))  # test failures count toward escalation
-  bmb_analytics_event "8" "" "test_fail" "error" "" "tests failed, count=$REJECTION_COUNT"
-  # -> loop to Step 6
-fi
-```
-
-```bash
 bmb_analytics_step_end "8" "testing"
 ```
 
@@ -440,16 +430,23 @@ bmb_analytics_step_end "8" "testing"
 bmb_analytics_step_start "9" "simplification"
 ```
 
-Lead invokes /simplify skill for code cleanup.
-If simplification breaks tests -> revert.
+**Parallel: /simplify + Docs Writer**
 
-Then dispatch Writer (Sonnet):
 ```
-Agent(subagent_type="bmb-writer", model="sonnet")
+# These two run in parallel:
+
+# Lead invokes /simplify skill inline (foreground)
+# /simplify reviews changed code for reuse, quality, efficiency
+
+# Simultaneously, dispatch Writer in background:
+Agent(subagent_type="bmb-writer", model="sonnet", run_in_background=true, name="writer")
   prompt: "Update documentation for the changes made.
            Read the git diff and .bmb/handoffs/plan-to-exec.md.
            Update relevant docs. Write summary to .bmb/handoffs/docs-update.md"
 ```
+
+After /simplify completes: re-run tests. If simplification breaks tests → revert.
+Wait for Writer to finish (background agent auto-notifies).
 
 ```bash
 bmb_analytics_step_end "9" "simplification"
