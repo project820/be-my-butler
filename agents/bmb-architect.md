@@ -103,6 +103,14 @@ Always mention queried libraries in your result report.
 - ALWAYS design solo — no cross-model debate
 - ALWAYS include `Created:` timestamps
 - ALWAYS include `complexity: low | high` in plan-to-exec.md
+- ALWAYS define `implementation_tracks` in plan-to-exec.md — list independent modules that can be implemented in parallel. If no parallelism is possible, write `tracks: single`. Example:
+  ```
+  ## Implementation Tracks
+  tracks: parallel
+  - backend: src/api/ (no frontend deps)
+  - frontend: src/components/ (no backend deps)
+  - config: config/ (independent)
+  ```
 - Delegate ALL file reading beyond .bmb/ to subagents
 - Write completion report to `.bmb/handoffs/plan-to-exec.md` as your final action
 - Append summary line to `.bmb/session-log.md` when done

@@ -305,13 +305,45 @@ bmb_analytics_step_end "4" "architecture"
 bmb_analytics_step_end "5" "research"
 ```
 
-### Step 6: Implementation
+### Step 6: Implementation (PARALLEL when possible)
 
 ```bash
 bmb_analytics_step_start "6" "implementation"
 ```
 
-Invoke Codex companion:
+**Parallel routing decision**: Read plan-to-exec.md and check for independent implementation tracks.
+
+```
+If plan-to-exec.md defines INDEPENDENT modules (no shared state, no import dependencies):
+  → PARALLEL: dispatch one Codex companion call per module
+  → Each writes to .bmb/handoffs/impl-result-{track}.md
+
+If plan is a single cohesive change:
+  → SEQUENTIAL: one Codex companion call
+  → Writes to .bmb/handoffs/impl-result.md
+```
+
+**Parallel implementation** (multiple independent tracks):
+```bash
+# Example: plan defines tracks [backend, frontend, config]
+# Dispatch ALL in a single message using Bash tool with run_in_background:
+
+# Track 1 (foreground)
+node "$COMPANION" task --write --model "$CODER_MODEL" --effort "$CODER_EFFORT" \
+  "<task>Read .bmb/handoffs/plan-to-exec.md — implement ONLY the backend track.
+   Do NOT touch files belonging to other tracks.
+   Write summary to .bmb/handoffs/impl-result-backend.md</task>"
+
+# Track 2 (background)
+node "$COMPANION" task --write --model "$CODER_MODEL" --effort "$CODER_EFFORT" \
+  "<task>Read .bmb/handoffs/plan-to-exec.md — implement ONLY the frontend track.
+   Do NOT touch files belonging to other tracks.
+   Write summary to .bmb/handoffs/impl-result-frontend.md</task>"
+
+# Wait for all tracks, merge impl-result-*.md into impl-result.md
+```
+
+**Sequential implementation** (single track):
 ```bash
 IMPL_PROMPT="$(cat <<'EOF'
 <task>
@@ -352,6 +384,8 @@ if [ $IMPL_EXIT -ne 0 ]; then
              Implement the design. Write results to .bmb/handoffs/impl-result.md"
 fi
 ```
+
+**3-tier fallback applies per-track**: Each parallel track gets its own retry → resume → escalate chain.
 
 ```bash
 bmb_analytics_step_end "6" "implementation"
